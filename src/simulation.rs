@@ -6,7 +6,9 @@ trait Gen {
     fn generate(&self) -> UnGraph<(), ()>;
 }
 
-struct Simulation {}
+struct Simulation {
+    end_time: usize,
+}
 
 impl Simulation {
     pub fn barabasi_albert(config: BarabasiAlbertGenConfig) -> UnGraph<(), ()> {
