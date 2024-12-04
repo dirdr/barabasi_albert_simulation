@@ -4,7 +4,7 @@ use barabasi_albert_simulation::{
 };
 
 fn main() -> anyhow::Result<()> {
-    let mut barabasi = BarabasiAlbertClassic::new(5, 2, 100);
+    let mut barabasi = BarabasiAlbertClassic::new(10, 5, 1000000);
     let graph = barabasi.generate();
     let graph_degree_sequence = graph.degree_sequence();
     write_degree_sequence_to_file(
