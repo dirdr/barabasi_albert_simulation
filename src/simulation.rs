@@ -1,3 +1,5 @@
+use std::hint::assert_unchecked;
+
 use petgraph::graph::NodeIndex;
 use petgraph::graph::UnGraph;
 use petgraph_gen::complete_graph;
@@ -55,6 +57,21 @@ where
 
 impl BarabasiAlbertClassic {
     pub fn new(n: usize, m: usize, end_time: usize) -> Self {
+        assert!(
+            n >= 1,
+            "The number of initial vertices must be greater than 1"
+        );
+
+        assert!(
+            m <= n,
+            "The number of initial node need to be greater than number of new connexion per step"
+        );
+
+        assert!(
+            m >= 1,
+            "The number of new connexion per step must be greater than one"
+        );
+
         let graph = complete_graph(n);
         let mut stubs = vec![];
         for node in graph.node_indices() {
