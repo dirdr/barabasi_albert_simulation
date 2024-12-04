@@ -1,11 +1,14 @@
-use std::{fmt::Debug, fs};
+use std::{fmt::Debug, fs, path::Path};
 
 use petgraph::{
     dot::{Config, Dot},
     EdgeType, Graph,
 };
 
-pub fn write_dot_to_file<N, E, Ty>(graph: Graph<N, E, Ty>, path: &'static str) -> anyhow::Result<()>
+pub fn write_dot_to_file<N, E, Ty, P: AsRef<Path>>(
+    graph: Graph<N, E, Ty>,
+    path: P,
+) -> anyhow::Result<()>
 where
     N: Debug,
     E: Debug,
@@ -16,9 +19,9 @@ where
     Ok(())
 }
 
-pub fn write_degree_sequence_to_file(
+pub fn write_degree_sequence_to_file<P: AsRef<Path>>(
     degree_sequence: Vec<usize>,
-    path: &'static str,
+    path: P,
 ) -> anyhow::Result<()> {
     let line = degree_sequence
         .iter()

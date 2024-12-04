@@ -22,9 +22,9 @@ pub trait DegreeSequence {
 pub struct BarabasiAlbertClassic {
     graph: UnGraph<(), ()>,
     stubs: Vec<NodeIndex>,
-    n: usize,
-    m: usize,
-    end_time: usize,
+    pub n: usize,
+    pub m: usize,
+    pub end_time: usize,
 }
 
 pub struct BarabasiAlbertNoGrowth;
