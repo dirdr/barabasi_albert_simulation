@@ -6,7 +6,7 @@ use barabasi_albert_simulation::{
 };
 
 fn main() -> anyhow::Result<()> {
-    let mut barabasi = BarabasiAlbertClassic::new(10, 5, 10000000);
+    let mut barabasi = BarabasiAlbertClassic::new(10, 5, 1000000);
     let graph = barabasi.generate();
     let graph_degree_sequence = graph.degree_sequence();
     let graph_name = format!(
