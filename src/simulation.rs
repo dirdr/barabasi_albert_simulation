@@ -1,8 +1,6 @@
-use petgraph::graph::NodeIndex;
 use petgraph::graph::UnGraph;
-use petgraph_gen::complete_graph;
-use rand::thread_rng;
-use rand::Rng;
+
+use crate::models::{FromModelConfig, ModelConfig};
 
 /// A Barabasi-Albert variant that is capable to generate until `t_max`
 pub trait Gen {
@@ -19,22 +17,33 @@ pub trait DegreeSequence {
     fn degree_sequence(&self) -> Vec<usize>;
 }
 
-pub struct Simulation {
-    pub iteration_number: usize,
+/// A graph that is able to give a name
+pub trait Name {
+    fn get_name(&self) -> String;
 }
 
-impl Simulation {
-    pub fn simulate(&self) -> Vec<usize> {
-        let mut degree_sequences = vec![];
-        for i in 0..self.iteration_number {
-            let mut barabasi = BarabasiAlbertClassic::new(10, 5, 100000);
-            let graph = barabasi.generate();
-            degree_sequences.push(graph.degree_sequence());
-        }
-        self.mean_vectors(&degree_sequences)
-    }
+/// Barabasi-Albert model is random by nature, to have analysis on the models
+/// we simulate the results `iteration_number` time with the goal to average our two simulation goal
+/// 1. The degree sequence of the network
+/// 2. The evolution of degree of the different vertices listed inside `tracked_vertices`, those
+///    degree are identified by the time step `i` they arrive in the network.
+pub struct Simulation<S: SimulationState> {
+    pub iteration_number: usize,
+    pub tracked_vertices: Vec<usize>,
+    pub degree_sequence: Option<Vec<usize>>,
+    marker: std::marker::PhantomData<S>,
+}
 
-    fn mean_vectors(&self, vectors: &[Vec<usize>]) -> Vec<usize> {
+pub trait SimulationState {}
+
+pub enum Over {}
+pub enum Start {}
+
+impl SimulationState for Over {}
+impl SimulationState for Start {}
+
+impl<S: SimulationState> Simulation<S> {
+    pub fn mean_vectors(vectors: &[Vec<usize>]) -> Vec<usize> {
         assert!(!vectors.is_empty(), "Input vector list cannot be empty");
 
         let num_vectors = vectors.len();
@@ -54,83 +63,39 @@ impl Simulation {
     }
 }
 
-pub struct BarabasiAlbertClassic {
-    graph: UnGraph<(), ()>,
-    stubs: Vec<NodeIndex>,
-    pub n: usize,
-    pub m: usize,
-    pub end_time: usize,
-}
-
-pub struct BarabasiAlbertNoGrowth;
-pub struct BarabasiAlbertRandomAttachement;
-
-impl<R> Step<R> for BarabasiAlbertClassic
-where
-    R: Rng + Sized,
-{
-    fn step(&mut self, rng: &mut R) {
-        let new_node = self.graph.add_node(());
-        let mut targets = vec![];
-        while targets.len() < self.m {
-            let random_index = rng.gen_range(0..self.stubs.len());
-            let target = self.stubs[random_index];
-            // To prevent multi-edge
-            if !targets.contains(&target) {
-                targets.push(target);
-            }
-        }
-        for &target in &targets {
-            self.graph.add_edge(new_node, target, ());
-            self.stubs.push(new_node);
-            self.stubs.push(target);
-        }
-    }
-}
-
-impl BarabasiAlbertClassic {
-    pub fn new(n: usize, m: usize, end_time: usize) -> Self {
-        assert!(
-            n >= 1,
-            "The number of initial vertices must be greater than 1"
-        );
-
-        assert!(
-            m <= n,
-            "The number of initial node need to be greater than number of new connexion per step"
-        );
-
-        assert!(
-            m >= 1,
-            "The number of new connexion per step must be greater than one"
-        );
-
-        let graph = complete_graph(n);
-        let mut stubs = vec![];
-        for node in graph.node_indices() {
-            for _ in graph.edges(node) {
-                stubs.push(node);
-            }
-        }
+impl Simulation<Start> {
+    pub fn new(iteration_number: usize) -> Self {
         Self {
-            graph,
-            stubs,
-            n,
-            m,
-            end_time,
+            iteration_number,
+            degree_sequence: None,
+            marker: std::marker::PhantomData,
+            tracked_vertices: vec![],
+        }
+    }
+
+    pub fn simulate<G: FromModelConfig + Gen>(self, model_config: ModelConfig) -> Simulation<Over> {
+        let mut sequences = vec![];
+        for _ in 0..self.iteration_number {
+            let mut model: G = FromModelConfig::from_model_config(model_config);
+            let graph = model.generate();
+            sequences.push(graph.degree_sequence());
+        }
+        let mean = Simulation::<Start>::mean_vectors(&sequences);
+        Simulation {
+            degree_sequence: Some(mean),
+            marker: std::marker::PhantomData,
+            iteration_number: self.iteration_number,
+            tracked_vertices: self.tracked_vertices,
         }
     }
 }
 
-impl Gen for BarabasiAlbertClassic {
-    /// Generate a Barabasi Albert graph with `n` initial nodes and `m` newly created edges at each
-    /// time step
-    fn generate(&mut self) -> UnGraph<(), ()> {
-        let mut rng = thread_rng();
-        for _ in 0..self.end_time {
-            self.step(&mut rng);
+impl Simulation<Over> {
+    pub fn get_mean_degree_sequence(&self) -> Vec<usize> {
+        if let Some(ds) = &self.degree_sequence {
+            return ds.clone();
         }
-        self.graph.clone()
+        unreachable!("Type state pattern prevent degree sequence being None")
     }
 }
 
@@ -147,35 +112,57 @@ impl<N, E> DegreeSequence for UnGraph<N, E> {
 
 #[cfg(test)]
 mod tests {
+
     use petgraph::visit::EdgeRef;
 
-    use crate::simulation::{BarabasiAlbertClassic, DegreeSequence, Gen};
+    use crate::{
+        models::{BarabasiAlbertClassic, FromModelConfig, GraphType, ModelConfig},
+        simulation::{DegreeSequence, Gen},
+    };
 
     #[test]
     fn test_barabasi_classic_node_count() {
-        let mut gen = BarabasiAlbertClassic::new(5, 3, 10);
-        let graph = gen.generate();
+        let config = ModelConfig {
+            initial_nodes: 5,
+            edges_increment: 3,
+            end_time: 10,
+            starting_graph_type: GraphType::Complete,
+        };
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
+        let graph = model.generate();
 
         // Total nodes = Initial nodes + nodes added at each time step
-        assert_eq!(graph.node_count(), gen.n + gen.end_time);
+        assert_eq!(graph.node_count(), model.initial_nodes + model.end_time);
     }
 
     #[test]
     fn test_barabasi_classic_edge_count() {
-        let mut gen = BarabasiAlbertClassic::new(5, 3, 10);
-        let graph = gen.generate();
+        let config = ModelConfig {
+            initial_nodes: 5,
+            edges_increment: 3,
+            end_time: 10,
+            starting_graph_type: GraphType::Complete,
+        };
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
+        let graph = model.generate();
 
         // Initial edges = (n * (n - 1)) / 2 for a fully connected graph
-        let initial_edges = (gen.n * (gen.n - 1)) / 2;
-        let expected_edges = initial_edges + (gen.m * gen.end_time);
+        let initial_edges = (config.initial_nodes * (config.initial_nodes - 1)) / 2;
+        let expected_edges = initial_edges + (config.edges_increment * config.end_time);
 
         assert_eq!(graph.edge_count(), expected_edges);
     }
 
     #[test]
     fn test_barabasi_classic_no_multi_edges() {
-        let mut gen = BarabasiAlbertClassic::new(5, 3, 10);
-        let graph = gen.generate();
+        let config = ModelConfig {
+            initial_nodes: 5,
+            edges_increment: 3,
+            end_time: 10,
+            starting_graph_type: GraphType::Complete,
+        };
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
+        let graph = model.generate();
 
         for node in graph.node_indices() {
             let mut neighbors = vec![];
@@ -189,8 +176,14 @@ mod tests {
 
     #[test]
     fn test_barabasi_classic_graph_connectivity() {
-        let mut gen = BarabasiAlbertClassic::new(5, 3, 10);
-        let graph = gen.generate();
+        let config = ModelConfig {
+            initial_nodes: 5,
+            edges_increment: 3,
+            end_time: 10,
+            starting_graph_type: GraphType::Complete,
+        };
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
+        let graph = model.generate();
 
         let connected_components = petgraph::algo::connected_components(&graph);
         assert_eq!(connected_components, 1, "Graph is not connected");

@@ -1,34 +1,63 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use barabasi_albert_simulation::{
-    simulation::{BarabasiAlbertClassic, Simulation},
-    utils::{write_degree_sequence_to_file, write_dot_to_file},
+    models::{BarabasiAlbertClassic, BarabasiAlbertPetgraphWrapper, GraphType, ModelConfig},
+    simulation::Simulation,
+    utils::write_degree_sequence_to_file,
 };
 
 fn main() -> anyhow::Result<()> {
-    let it_number = 1000;
-    let mut barabasi = BarabasiAlbertClassic::new(10, 5, 100000);
-    let sim = Simulation {
-        iteration_number: it_number,
-    };
-
-    let graph_name = format!(
-        "barabasi_classic_n={}_m={}_end={}_mean_over={}",
-        barabasi.n, barabasi.m, barabasi.end_time, it_number
-    );
-
-    let base = "resources";
-
-    let mut dot_path = Path::new(base).join("dots").join(graph_name.clone());
-    dot_path.set_extension("dot");
-
-    let mut degree_sequence_path = Path::new(base)
-        .join("degree_sequences")
-        .join(graph_name.clone());
-    degree_sequence_path.set_extension("txt");
-
-    let degree_sequence_mean = sim.simulate();
-
-    write_degree_sequence_to_file(degree_sequence_mean, degree_sequence_path)?;
+    simulate_custom()?;
+    simulate_builtin()?;
     Ok(())
+}
+
+fn simulate_builtin() -> anyhow::Result<()> {
+    let builtin = ModelConfig {
+        initial_nodes: 10,
+        edges_increment: 5,
+        end_time: 100000,
+        starting_graph_type: GraphType::Complete,
+    };
+    let sim_builtin = Simulation::new(100);
+    let over = sim_builtin.simulate::<BarabasiAlbertPetgraphWrapper>(builtin);
+    let custom_path = format!(
+        "BA_BUILTIN_n={}_m={}_tmax={}_it={}",
+        &builtin.initial_nodes, &builtin.edges_increment, &builtin.end_time, over.iteration_number
+    );
+    let path = generate_path(custom_path, "degree_sequences", Some("txt"));
+    let degree_sequence = over.get_mean_degree_sequence();
+    write_degree_sequence_to_file(degree_sequence, path)?;
+    Ok(())
+}
+
+fn simulate_custom() -> anyhow::Result<()> {
+    let custom = ModelConfig {
+        initial_nodes: 10,
+        edges_increment: 5,
+        end_time: 100000,
+        starting_graph_type: GraphType::Complete,
+    };
+    let sim_custom = Simulation::new(100);
+    let over = sim_custom.simulate::<BarabasiAlbertClassic>(custom);
+    let custom_path = format!(
+        "BA_CUSTOM_n={}_m={}_tmax={}_it={}",
+        &custom.initial_nodes, &custom.edges_increment, &custom.end_time, over.iteration_number
+    );
+    let path = generate_path(custom_path, "degree_sequences", Some("txt"));
+    let degree_sequence = over.get_mean_degree_sequence();
+    write_degree_sequence_to_file(degree_sequence, path)?;
+    Ok(())
+}
+
+fn generate_path(
+    graph_name: String,
+    sub_folder: &'static str,
+    extension: Option<&'static str>,
+) -> PathBuf {
+    let mut path = Path::new("resources").join(sub_folder).join(graph_name);
+    if let Some(extension) = extension {
+        path.set_extension(extension);
+    }
+    path
 }
