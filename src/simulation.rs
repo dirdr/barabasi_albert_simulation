@@ -1,5 +1,3 @@
-use std::hint::assert_unchecked;
-
 use petgraph::graph::NodeIndex;
 use petgraph::graph::UnGraph;
 use petgraph_gen::complete_graph;
@@ -19,6 +17,41 @@ pub trait Step<R> {
 /// A Graph that is able to compute it's degree sequence
 pub trait DegreeSequence {
     fn degree_sequence(&self) -> Vec<usize>;
+}
+
+pub struct Simulation {
+    pub iteration_number: usize,
+}
+
+impl Simulation {
+    pub fn simulate(&self) -> Vec<usize> {
+        let mut degree_sequences = vec![];
+        for i in 0..self.iteration_number {
+            let mut barabasi = BarabasiAlbertClassic::new(10, 5, 100000);
+            let graph = barabasi.generate();
+            degree_sequences.push(graph.degree_sequence());
+        }
+        self.mean_vectors(&degree_sequences)
+    }
+
+    fn mean_vectors(&self, vectors: &[Vec<usize>]) -> Vec<usize> {
+        assert!(!vectors.is_empty(), "Input vector list cannot be empty");
+
+        let num_vectors = vectors.len();
+        let vector_length = vectors[0].len();
+
+        assert!(
+            vectors.iter().all(|v| v.len() == vector_length),
+            "All vectors must have the same length"
+        );
+
+        (0..vector_length)
+            .map(|i| {
+                let sum: usize = vectors.iter().map(|v| v[i]).sum();
+                (sum as f64 / num_vectors as f64).ceil() as usize
+            })
+            .collect()
+    }
 }
 
 pub struct BarabasiAlbertClassic {
