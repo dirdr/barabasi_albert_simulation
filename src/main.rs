@@ -6,14 +6,15 @@ use barabasi_albert_simulation::{
 };
 
 fn main() -> anyhow::Result<()> {
+    let it_number = 1000;
     let mut barabasi = BarabasiAlbertClassic::new(10, 5, 100000);
     let sim = Simulation {
-        iteration_number: 100,
+        iteration_number: it_number,
     };
 
     let graph_name = format!(
         "barabasi_classic_n={}_m={}_end={}_mean_over={}",
-        barabasi.n, barabasi.m, barabasi.end_time, 100
+        barabasi.n, barabasi.m, barabasi.end_time, it_number
     );
 
     let base = "resources";
