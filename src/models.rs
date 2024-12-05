@@ -2,10 +2,28 @@ use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{barabasi_albert_graph, complete_graph};
 use rand::{thread_rng, Rng};
 
-use crate::simulation::{Gen, Step};
-
 pub trait FromModelConfig {
     fn from_model_config(model_config: ModelConfig) -> Self;
+}
+
+/// A Barabasi-Albert variant that is capable to generate until `t_max`
+pub trait Gen {
+    fn generate(&mut self) -> UnGraph<(), ()>;
+}
+
+/// A Barabasi-Albert that is capable of stepping into the simulation
+pub trait Step<R> {
+    fn step(&mut self, rng: &mut R);
+}
+
+/// A Graph that is able to compute it's degree sequence
+pub trait DegreeSequence {
+    fn degree_sequence(&self) -> Vec<usize>;
+}
+
+/// A graph that is able to give a name
+pub trait Name {
+    fn get_name(&self) -> String;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -128,5 +146,16 @@ impl Gen for BarabasiAlbertClassic {
             self.step(&mut rng);
         }
         self.graph.clone()
+    }
+}
+
+impl<N, E> DegreeSequence for UnGraph<N, E> {
+    fn degree_sequence(&self) -> Vec<usize> {
+        let mut out = vec![];
+        for node in self.node_indices() {
+            let num = self.edges(node).count();
+            out.push(num);
+        }
+        out
     }
 }
