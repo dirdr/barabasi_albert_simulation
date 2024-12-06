@@ -4,6 +4,8 @@ use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{barabasi_albert_graph, complete_graph, star_graph};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
 
+use crate::args::{Args, ArgsGraphType};
+
 /// A Model that is capable of itself from a `ModelConfig`
 pub trait FromModelConfig {
     fn from_model_config(model_config: ModelConfig) -> Self;
@@ -49,6 +51,21 @@ pub struct ModelConfig {
     pub end_time: usize,
     pub starting_graph_type: GraphType,
     pub tracked_vertices: &'static [usize],
+}
+
+impl ModelConfig {
+    pub fn from_args(args: &Args, tracked_vertices: &'static [usize]) -> Self {
+        Self {
+            initial_nodes: args.n,
+            edges_increment: args.m,
+            end_time: args.barabasi_end_time,
+            starting_graph_type: match args.barabasi_starting_graph_type {
+                ArgsGraphType::Complete => GraphType::Complete,
+                ArgsGraphType::Star => GraphType::Star,
+            },
+            tracked_vertices,
+        }
+    }
 }
 
 pub struct BarabasiAlbertClassic {

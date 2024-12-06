@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use barabasi_albert_simulation::{
-    args::{self, Args},
-    models::{BarabasiAlbertClassic, BarabasiAlbertPetgraphWrapper, GraphType, ModelConfig},
+    args::Args,
+    models::{BarabasiAlbertClassic, BarabasiAlbertPetgraphWrapper, ModelConfig},
     simulation::Simulation,
     utils::write_values_to_file,
 };
@@ -11,16 +11,7 @@ use clap::Parser;
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     static TRACKED_VERTICES: &[usize] = &[1, 10, 100, 1000];
-    let model_config = ModelConfig {
-        initial_nodes: args.n,
-        edges_increment: args.m,
-        end_time: args.barabasi_end_time,
-        starting_graph_type: match args.barabasi_starting_graph_type {
-            args::ArgsGraphType::Complete => GraphType::Complete,
-            args::ArgsGraphType::Star => GraphType::Star,
-        },
-        tracked_vertices: TRACKED_VERTICES,
-    };
+    let model_config = ModelConfig::from_args(&args, TRACKED_VERTICES);
     simulate_custom(&model_config, args.iteration_number)?;
     simulate_builtin(&model_config, args.iteration_number)?;
     Ok(())
