@@ -57,15 +57,16 @@ impl Simulation<Start> {
     }
 
     pub fn simulate<G: FromModelConfig + Gen>(self, model_config: ModelConfig) -> Simulation<Over> {
-        let mut sequences = vec![];
+        let mut sequence = None;
         for _ in 0..self.iteration_number {
             let mut model: G = FromModelConfig::from_model_config(model_config);
             let graph = model.generate();
-            sequences.push(graph.degree_sequence());
+            if sequence.is_none() {
+                sequence = Some(graph.degree_sequence());
+            }
         }
-        let mean = Simulation::<Start>::mean_vectors(&sequences);
         Simulation {
-            degree_sequence: Some(mean),
+            degree_sequence: sequence,
             iteration_number: self.iteration_number,
             state: Over {
                 vertices_evolution: None,
@@ -77,8 +78,7 @@ impl Simulation<Start> {
         self,
         model_config: ModelConfig,
     ) -> Simulation<Over> {
-        let mut sequences = vec![];
-
+        let mut sequence = None;
         let mut vertices_evolution: HashMap<NodeIndex, Vec<Vec<usize>>> = HashMap::new();
 
         for _ in 0..self.iteration_number {
@@ -90,17 +90,17 @@ impl Simulation<Start> {
                     .or_default()
                     .push(model.get_vertex_evolution(NodeIndex::new(*vid)))
             }
-            sequences.push(graph.degree_sequence());
+            if sequence.is_none() {
+                sequence = Some(graph.degree_sequence());
+            }
         }
-        let mean_degree_sequence = Simulation::<Start>::mean_vectors(&sequences);
-
         let meaned_vertices_evolution = vertices_evolution
             .into_iter()
             .map(|(k, ce)| (k, Simulation::<Start>::mean_vectors(&ce)))
             .collect();
 
         Simulation {
-            degree_sequence: Some(mean_degree_sequence),
+            degree_sequence: sequence,
             iteration_number: self.iteration_number,
             state: Over {
                 vertices_evolution: Some(meaned_vertices_evolution),
