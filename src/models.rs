@@ -52,12 +52,9 @@ pub struct ModelConfig {
 }
 
 pub struct BarabasiAlbertClassic {
-    pub initial_nodes: usize,
-    pub edges_increment: usize,
-    pub end_time: usize,
+    pub model_config: ModelConfig,
     graph: UnGraph<(), ()>,
     stubs: Vec<NodeIndex>,
-    tracked_vertices: Vec<NodeIndex>,
     vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
 }
 
@@ -106,10 +103,10 @@ where
     fn step(&mut self, rng: &mut R) {
         let new_node = self.graph.add_node(());
         let uniform = Uniform::new(0, self.stubs.len());
-        let mut picked = vec![false; self.initial_nodes + self.end_time];
-        let mut targets = vec![NodeIndex::new(0); self.edges_increment];
+        let mut picked = vec![false; self.model_config.initial_nodes + self.model_config.end_time];
+        let mut targets = vec![NodeIndex::new(0); self.model_config.edges_increment];
         let mut i = 0;
-        while i < self.edges_increment {
+        while i < self.model_config.edges_increment {
             let random_index = uniform.sample(rng);
             let target = self.stubs[random_index];
             // To prevent multi-edge
@@ -158,16 +155,9 @@ impl FromModelConfig for BarabasiAlbertClassic {
         }
 
         Self {
+            model_config,
             graph,
             stubs,
-            initial_nodes: model_config.initial_nodes,
-            edges_increment: model_config.edges_increment,
-            end_time: model_config.end_time,
-            tracked_vertices: model_config
-                .tracked_vertices
-                .iter()
-                .map(|i| NodeIndex::new(*i))
-                .collect::<Vec<_>>(),
             vertices_evolution: HashMap::new(),
         }
     }
@@ -178,7 +168,7 @@ impl Gen for BarabasiAlbertClassic {
     /// time step
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for _ in 0..self.end_time {
+        for _ in 0..self.model_config.end_time {
             self.step(&mut rng);
             self.update_vertices_evolution();
         }
@@ -196,11 +186,12 @@ impl TrackVertices for BarabasiAlbertClassic {
     }
 
     fn update_vertices_evolution(&mut self) {
-        for vertex in &self.tracked_vertices {
+        for vertex in self.model_config.tracked_vertices {
+            let node_index = NodeIndex::new(*vertex);
             self.vertices_evolution
-                .entry(*vertex)
+                .entry(node_index)
                 .or_default()
-                .push(self.graph.neighbors(*vertex).count())
+                .push(self.graph.neighbors(node_index).count())
         }
     }
 }

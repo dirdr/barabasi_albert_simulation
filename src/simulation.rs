@@ -148,7 +148,10 @@ mod tests {
         let graph = model.generate();
 
         // Total nodes = Initial nodes + nodes added at each time step
-        assert_eq!(graph.node_count(), model.initial_nodes + model.end_time);
+        assert_eq!(
+            graph.node_count(),
+            model.model_config.initial_nodes + model.model_config.end_time
+        );
     }
 
     #[test]
