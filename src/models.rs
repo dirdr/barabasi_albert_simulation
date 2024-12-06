@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{barabasi_albert_graph, complete_graph, star_graph};
-use rand::{distributions::Uniform, prelude::Distribution, seq::SliceRandom, thread_rng, Rng};
+use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
 
 use crate::args::{Args, ArgsGraphType};
 
