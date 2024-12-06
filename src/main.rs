@@ -10,6 +10,7 @@ use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    static TRACKED_VERTICES: &[usize] = &[1, 10, 100, 1000];
     let model_config = ModelConfig {
         initial_nodes: args.n,
         edges_increment: args.m,
@@ -18,6 +19,7 @@ fn main() -> anyhow::Result<()> {
             args::ArgsGraphType::Complete => GraphType::Complete,
             args::ArgsGraphType::Star => GraphType::Star,
         },
+        tracked_vertices: TRACKED_VERTICES,
     };
     simulate_custom(&model_config, args.iteration_number)?;
     simulate_builtin(&model_config, args.iteration_number)?;

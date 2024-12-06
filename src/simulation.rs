@@ -7,7 +7,6 @@ use crate::models::{DegreeSequence, FromModelConfig, Gen, ModelConfig};
 ///    degree are identified by the time step `i` they arrive in the network.
 pub struct Simulation<S: SimulationState> {
     pub iteration_number: usize,
-    pub tracked_vertices: Vec<usize>,
     pub degree_sequence: Option<Vec<usize>>,
     marker: std::marker::PhantomData<S>,
 }
@@ -47,7 +46,6 @@ impl Simulation<Start> {
             iteration_number,
             degree_sequence: None,
             marker: std::marker::PhantomData,
-            tracked_vertices: vec![],
         }
     }
 
@@ -63,7 +61,6 @@ impl Simulation<Start> {
             degree_sequence: Some(mean),
             marker: std::marker::PhantomData,
             iteration_number: self.iteration_number,
-            tracked_vertices: self.tracked_vertices,
         }
     }
 }
@@ -94,6 +91,7 @@ mod tests {
             edges_increment: 3,
             end_time: 10,
             starting_graph_type: GraphType::Complete,
+            tracked_vertices: &[],
         };
         let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
         let graph = model.generate();
@@ -109,6 +107,7 @@ mod tests {
             edges_increment: 3,
             end_time: 10,
             starting_graph_type: GraphType::Complete,
+            tracked_vertices: &[],
         };
         let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
         let graph = model.generate();
@@ -127,6 +126,7 @@ mod tests {
             edges_increment: 3,
             end_time: 10,
             starting_graph_type: GraphType::Complete,
+            tracked_vertices: &[],
         };
         let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
         let graph = model.generate();
@@ -148,6 +148,7 @@ mod tests {
             edges_increment: 3,
             end_time: 10,
             starting_graph_type: GraphType::Complete,
+            tracked_vertices: &[],
         };
         let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(config);
         let graph = model.generate();

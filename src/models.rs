@@ -1,6 +1,9 @@
-use petgraph::graph::{NodeIndex, UnGraph};
+use petgraph::{
+    csr::IndexType,
+    graph::{NodeIndex, UnGraph},
+};
 use petgraph_gen::{barabasi_albert_graph, complete_graph, star_graph};
-use rand::{thread_rng, Rng};
+use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
 
 pub trait FromModelConfig {
     fn from_model_config(model_config: ModelConfig) -> Self;
@@ -39,6 +42,7 @@ pub struct ModelConfig {
     pub edges_increment: usize,
     pub end_time: usize,
     pub starting_graph_type: GraphType,
+    pub tracked_vertices: &'static [usize],
 }
 
 pub struct BarabasiAlbertClassic {
@@ -93,19 +97,25 @@ where
 {
     fn step(&mut self, rng: &mut R) {
         let new_node = self.graph.add_node(());
-        let mut targets = vec![];
-        while targets.len() < self.edges_increment {
-            let random_index = rng.gen_range(0..self.stubs.len());
+        let uniform = Uniform::new(0, self.stubs.len());
+        let mut picked = vec![false; self.initial_nodes + self.end_time];
+        let mut targets = vec![NodeIndex::new(0); self.edges_increment];
+        let mut i = 0;
+        while i < self.edges_increment {
+            let random_index = uniform.sample(rng);
             let target = self.stubs[random_index];
             // To prevent multi-edge
-            if !targets.contains(&target) {
-                targets.push(target);
+            if !picked[target.index()] {
+                picked[target.index()] = true;
+                targets[i] = target;
+                i += 1;
             }
         }
         for &target in &targets {
             self.graph.add_edge(new_node, target, ());
             self.stubs.push(new_node);
             self.stubs.push(target);
+            picked[target.index()] = false;
         }
     }
 }
