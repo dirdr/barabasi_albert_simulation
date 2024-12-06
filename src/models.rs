@@ -1,27 +1,33 @@
-use petgraph::{
-    csr::IndexType,
-    graph::{NodeIndex, UnGraph},
-};
+use std::collections::HashMap;
+
+use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{barabasi_albert_graph, complete_graph, star_graph};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
 
+/// A Model that is capable of itself from a `ModelConfig`
 pub trait FromModelConfig {
     fn from_model_config(model_config: ModelConfig) -> Self;
 }
 
-/// A Barabasi-Albert variant that is capable to generate until `t_max`
+/// A Mode that is capable to generate into a graph
 pub trait Gen {
     fn generate(&mut self) -> UnGraph<(), ()>;
 }
 
-/// A Barabasi-Albert that is capable of stepping into the simulation
+/// A Model that is capable of stepping into the simulation
 pub trait Step<R> {
     fn step(&mut self, rng: &mut R);
 }
 
-/// A Graph that is able to compute it's degree sequence
+/// A Model that is able to compute it's degree sequence
 pub trait DegreeSequence {
     fn degree_sequence(&self) -> Vec<usize>;
+}
+
+/// A Model that is able to track the evolution of a vertex into the simulation
+pub trait TrackVertices {
+    fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize>;
+    fn update_vertices_evolution(&mut self);
 }
 
 /// A graph that is able to give a name
@@ -46,11 +52,13 @@ pub struct ModelConfig {
 }
 
 pub struct BarabasiAlbertClassic {
-    graph: UnGraph<(), ()>,
-    stubs: Vec<NodeIndex>,
     pub initial_nodes: usize,
     pub edges_increment: usize,
     pub end_time: usize,
+    graph: UnGraph<(), ()>,
+    stubs: Vec<NodeIndex>,
+    tracked_vertices: Vec<NodeIndex>,
+    vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
 }
 
 pub struct BarabasiAlbertNoGrowth;
@@ -155,6 +163,12 @@ impl FromModelConfig for BarabasiAlbertClassic {
             initial_nodes: model_config.initial_nodes,
             edges_increment: model_config.edges_increment,
             end_time: model_config.end_time,
+            tracked_vertices: model_config
+                .tracked_vertices
+                .iter()
+                .map(|i| NodeIndex::new(*i))
+                .collect::<Vec<_>>(),
+            vertices_evolution: HashMap::new(),
         }
     }
 }
@@ -166,8 +180,28 @@ impl Gen for BarabasiAlbertClassic {
         let mut rng = thread_rng();
         for _ in 0..self.end_time {
             self.step(&mut rng);
+            self.update_vertices_evolution();
         }
         self.graph.clone()
+    }
+}
+
+impl TrackVertices for BarabasiAlbertClassic {
+    fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize> {
+        let default = Vec::new();
+        self.vertices_evolution
+            .get(&vertex_id)
+            .unwrap_or(&default)
+            .clone()
+    }
+
+    fn update_vertices_evolution(&mut self) {
+        for vertex in &self.tracked_vertices {
+            self.vertices_evolution
+                .entry(*vertex)
+                .or_default()
+                .push(self.graph.neighbors(*vertex).count())
+        }
     }
 }
 

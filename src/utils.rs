@@ -19,11 +19,8 @@ where
     Ok(())
 }
 
-pub fn write_degree_sequence_to_file<P: AsRef<Path>>(
-    degree_sequence: Vec<usize>,
-    path: P,
-) -> anyhow::Result<()> {
-    let line = degree_sequence
+pub fn write_values_to_file<P: AsRef<Path>>(values: Vec<usize>, path: P) -> anyhow::Result<()> {
+    let line = values
         .iter()
         .map(|e| e.to_string())
         .collect::<Vec<_>>()

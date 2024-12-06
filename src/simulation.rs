@@ -1,4 +1,8 @@
-use crate::models::{DegreeSequence, FromModelConfig, Gen, ModelConfig};
+use std::collections::HashMap;
+
+use petgraph::graph::NodeIndex;
+
+use crate::models::{DegreeSequence, FromModelConfig, Gen, ModelConfig, TrackVertices};
 
 /// Barabasi-Albert model is random by nature, to have analysis on the models
 /// we simulate the results `iteration_number` time with the goal to average our two simulation goal
@@ -8,13 +12,16 @@ use crate::models::{DegreeSequence, FromModelConfig, Gen, ModelConfig};
 pub struct Simulation<S: SimulationState> {
     pub iteration_number: usize,
     pub degree_sequence: Option<Vec<usize>>,
-    marker: std::marker::PhantomData<S>,
+    state: S,
 }
 
 pub trait SimulationState {}
 
-pub enum Over {}
-pub enum Start {}
+pub struct Over {
+    pub vertices_evolution: Option<HashMap<NodeIndex, Vec<usize>>>,
+}
+
+pub struct Start {}
 
 impl SimulationState for Over {}
 impl SimulationState for Start {}
@@ -45,7 +52,7 @@ impl Simulation<Start> {
         Self {
             iteration_number,
             degree_sequence: None,
-            marker: std::marker::PhantomData,
+            state: Start {},
         }
     }
 
@@ -59,8 +66,45 @@ impl Simulation<Start> {
         let mean = Simulation::<Start>::mean_vectors(&sequences);
         Simulation {
             degree_sequence: Some(mean),
-            marker: std::marker::PhantomData,
             iteration_number: self.iteration_number,
+            state: Over {
+                vertices_evolution: None,
+            },
+        }
+    }
+
+    pub fn simulate_with_tracking<G: FromModelConfig + Gen + TrackVertices>(
+        self,
+        model_config: ModelConfig,
+    ) -> Simulation<Over> {
+        let mut sequences = vec![];
+
+        let mut vertices_evolution: HashMap<NodeIndex, Vec<Vec<usize>>> = HashMap::new();
+
+        for _ in 0..self.iteration_number {
+            let mut model: G = FromModelConfig::from_model_config(model_config);
+            let graph = model.generate();
+            for vid in model_config.tracked_vertices {
+                vertices_evolution
+                    .entry(NodeIndex::new(*vid))
+                    .or_default()
+                    .push(model.get_vertex_evolution(NodeIndex::new(*vid)))
+            }
+            sequences.push(graph.degree_sequence());
+        }
+        let mean_degree_sequence = Simulation::<Start>::mean_vectors(&sequences);
+
+        let meaned_vertices_evolution = vertices_evolution
+            .into_iter()
+            .map(|(k, ce)| (k, Simulation::<Start>::mean_vectors(&ce)))
+            .collect();
+
+        Simulation {
+            degree_sequence: Some(mean_degree_sequence),
+            iteration_number: self.iteration_number,
+            state: Over {
+                vertices_evolution: Some(meaned_vertices_evolution),
+            },
         }
     }
 }
@@ -71,6 +115,13 @@ impl Simulation<Over> {
             return ds.clone();
         }
         unreachable!("Type state pattern prevent degree sequence being None")
+    }
+
+    pub fn get_vertex_evolution<G: TrackVertices>(&self) -> HashMap<NodeIndex, Vec<usize>> {
+        if let Some(ve) = &self.state.vertices_evolution {
+            return ve.clone();
+        }
+        unreachable!("Type state pattern prevent vertex evolution from being None")
     }
 }
 
