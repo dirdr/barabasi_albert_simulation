@@ -1,3 +1,5 @@
+use core::fmt;
+
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -15,15 +17,37 @@ pub struct Args {
     #[arg(short, long, default_value_t, value_enum)]
     pub barabasi_starting_graph_type: ArgsGraphType,
 
+    #[arg(long, default_value_t, value_enum)]
+    pub model: ArgsModelType,
+
     #[arg(short, long, default_value_t = 100)]
     pub iteration_number: usize,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone, Default)]
+#[derive(clap::ValueEnum, Debug, Clone, Default, Copy)]
 pub enum ArgsGraphType {
     #[default]
     Complete,
     Star,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Default, Copy)]
+#[value(rename_all = "snake_case")]
+pub enum ArgsModelType {
+    #[default]
+    GrowthPreferential,
+    NoGrowthPreferential,
+    GrowthRandom,
+}
+
+impl fmt::Display for ArgsModelType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArgsModelType::GrowthPreferential => write!(f, "growth_preferential"),
+            ArgsModelType::GrowthRandom => write!(f, "growth_random"),
+            ArgsModelType::NoGrowthPreferential => write!(f, "no_growth_preferential"),
+        }
+    }
 }
 
 fn validate_m(m: &str) -> Result<usize, String> {
