@@ -68,6 +68,7 @@ impl ModelConfig {
     }
 }
 
+/// A Barabasi-Albert model with vertex growth and preferential attachement
 pub struct BarabasiAlbertClassic {
     pub model_config: ModelConfig,
     graph: UnGraph<(), ()>,
@@ -75,26 +76,22 @@ pub struct BarabasiAlbertClassic {
     vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
 }
 
+/// A Barabasi-Albert model with preferential attachement but without vertex growth.
 pub struct BarabasiAlbertNoGrowth;
+
+/// A Barabasi-Albert model with vertex growth and random attachement
+/// Each time a vertex is added, it attach to `m` random vertices in the network.
 pub struct BarabasiAlbertRandomAttachement;
 
-/// This wrapper is just for comparison purpose with our custom implementation of the
+/// A petgraph wrapper, for comparison purpose with our custom implementation of the
 /// Barabasi-Albert model.
 pub struct BarabasiAlbertPetgraphWrapper {
-    pub initial_nodes: usize,
-    pub edges_increment: usize,
-    pub end_time: usize,
-    pub initial_graph_type: GraphType,
+    pub model_config: ModelConfig,
 }
 
 impl FromModelConfig for BarabasiAlbertPetgraphWrapper {
     fn from_model_config(model_config: ModelConfig) -> Self {
-        Self {
-            initial_nodes: model_config.initial_nodes,
-            edges_increment: model_config.edges_increment,
-            end_time: model_config.end_time,
-            initial_graph_type: model_config.starting_graph_type,
-        }
+        Self { model_config }
     }
 }
 
@@ -103,13 +100,18 @@ impl Gen for BarabasiAlbertPetgraphWrapper {
         let mut rng = thread_rng();
         // n in petgraph-gen is the number of final node in the graph, so `initial_nodes` +
         // `end_time`
-        let n = self.initial_nodes + self.end_time;
-        let initial_graph: UnGraph<(), ()> = match self.initial_graph_type {
-            GraphType::Complete => complete_graph(self.initial_nodes),
+        let n = self.model_config.initial_nodes + self.model_config.end_time;
+        let initial_graph: UnGraph<(), ()> = match self.model_config.starting_graph_type {
+            GraphType::Complete => complete_graph(self.model_config.initial_nodes),
             // `star_graph` generate graph with n - 1 nodes
-            GraphType::Star => star_graph(self.initial_nodes - 1),
+            GraphType::Star => star_graph(self.model_config.initial_nodes - 1),
         };
-        barabasi_albert_graph(&mut rng, n, self.edges_increment, Some(initial_graph))
+        barabasi_albert_graph(
+            &mut rng,
+            n,
+            self.model_config.edges_increment,
+            Some(initial_graph),
+        )
     }
 }
 
