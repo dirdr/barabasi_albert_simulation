@@ -1,5 +1,5 @@
 use petgraph::graph::{NodeIndex, UnGraph};
-use petgraph_gen::{barabasi_albert_graph, complete_graph};
+use petgraph_gen::{barabasi_albert_graph, complete_graph, star_graph};
 use rand::{thread_rng, Rng};
 
 pub trait FromModelConfig {
@@ -58,6 +58,7 @@ pub struct BarabasiAlbertPetgraphWrapper {
     pub initial_nodes: usize,
     pub edges_increment: usize,
     pub end_time: usize,
+    pub initial_graph_type: GraphType,
 }
 
 impl FromModelConfig for BarabasiAlbertPetgraphWrapper {
@@ -66,6 +67,7 @@ impl FromModelConfig for BarabasiAlbertPetgraphWrapper {
             initial_nodes: model_config.initial_nodes,
             edges_increment: model_config.edges_increment,
             end_time: model_config.end_time,
+            initial_graph_type: model_config.starting_graph_type,
         }
     }
 }
@@ -73,10 +75,15 @@ impl FromModelConfig for BarabasiAlbertPetgraphWrapper {
 impl Gen for BarabasiAlbertPetgraphWrapper {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        // n in petgraph-gen is the numebr of final node in the graph, so `initial_nodes` +
+        // n in petgraph-gen is the number of final node in the graph, so `initial_nodes` +
         // `end_time`
         let n = self.initial_nodes + self.end_time;
-        barabasi_albert_graph(&mut rng, n, self.edges_increment, complete_graph(n))
+        let initial_graph: UnGraph<(), ()> = match self.initial_graph_type {
+            GraphType::Complete => complete_graph(self.initial_nodes),
+            // `star_graph` generate graph with n - 1 nodes
+            GraphType::Star => star_graph(self.initial_nodes - 1),
+        };
+        barabasi_albert_graph(&mut rng, n, self.edges_increment, Some(initial_graph))
     }
 }
 
@@ -120,13 +127,18 @@ impl FromModelConfig for BarabasiAlbertClassic {
             "The number of new connexion per step must be greater than one"
         );
 
-        let graph = complete_graph(model_config.initial_nodes);
+        let graph: UnGraph<(), ()> = match model_config.starting_graph_type {
+            GraphType::Complete => complete_graph(model_config.initial_nodes),
+            GraphType::Star => star_graph(model_config.initial_nodes - 1),
+        };
+
         let mut stubs = vec![];
         for node in graph.node_indices() {
             for _ in graph.edges(node) {
                 stubs.push(node);
             }
         }
+
         Self {
             graph,
             stubs,
