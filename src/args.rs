@@ -29,6 +29,7 @@ pub enum ArgsGraphType {
     #[default]
     Complete,
     Star,
+    Disconnected,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone, Default, Copy)]

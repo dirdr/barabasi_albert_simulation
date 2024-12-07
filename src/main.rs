@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use barabasi_albert_simulation::{
     args::{Args, ArgsModelType},
     models::{
-        BarabasiAlbertClassic, BarabasiAlbertPetgraphWrapper, BarabasiAlbertRandomAttachement,
-        ModelConfig,
+        BarabasiAlbertClassic, BarabasiAlbertNoGrowth, BarabasiAlbertPetgraphWrapper,
+        BarabasiAlbertRandomAttachement, ModelConfig,
     },
     simulation::Simulation,
     utils::write_values_to_file,
@@ -34,9 +34,9 @@ fn simulate_custom(
         ArgsModelType::GrowthRandom => {
             sim_custom.simulate_with_tracking::<BarabasiAlbertRandomAttachement>(*model_config)
         }
-        _ => todo!(), // ArgsModelType::NoGrowthPreferential => {
-                      //     sim_custom.simulate_with_tracking::<BarabasiAlbertNoGrowth>(*model_config)
-                      // }
+        ArgsModelType::NoGrowthPreferential => {
+            sim_custom.simulate_with_tracking::<BarabasiAlbertNoGrowth>(*model_config)
+        }
     };
 
     let model_name = format!("{}", model_type);
