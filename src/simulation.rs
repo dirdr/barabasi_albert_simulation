@@ -29,16 +29,28 @@ impl SimulationState for Over {}
 impl SimulationState for Start {}
 
 impl<S: SimulationState> Simulation<S> {
+    /// Combine a matrix of rows into a mean row
     pub fn mean_vectors(vectors: &[Vec<usize>]) -> Vec<usize> {
         assert!(!vectors.is_empty(), "Input vector list cannot be empty");
 
         let num_vectors = vectors.len();
         let vector_length = vectors[0].len();
 
-        assert!(
-            vectors.iter().all(|v| v.len() == vector_length),
-            "All vectors must have the same length"
-        );
+        let mismatches: Vec<(usize, usize)> = vectors
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| v.len() != vector_length)
+            .map(|(i, v)| (i, v.len()))
+            .collect();
+
+        if !mismatches.is_empty() {
+            for (index, len) in &mismatches {
+                eprintln!(
+                    "Vector at index {} has length {} (expected length: {})",
+                    index, len, vector_length
+                );
+            }
+        }
 
         (0..vector_length)
             .map(|i| {
@@ -67,15 +79,19 @@ impl Simulation<Start> {
 
         for _ in 0..self.iteration_number {
             let mut model: M = FromModelConfig::from_model_config(model_config);
-            let vertices_evolution = model.vertices_evolution();
-
             let graph = model.generate();
+            let vertices_evolution = model.vertices_evolution();
 
             for arrival in model_config.tracked_arrivals {
                 let arrival_evolution = vertices_evolution.get_arrival_evolution(arrival);
+
                 if arrival_evolution.is_none() {
-                    panic!("Cannot retreive arrival evolution");
+                    continue;
                 }
+
+                // if arrival_evolution.as_ref().unwrap().len() == 1 {
+                //     println!("arrival évolution bzr : {:?}", arrival_evolution);
+                // }
 
                 all_arrival_evolution
                     .entry(*arrival)
@@ -93,14 +109,6 @@ impl Simulation<Start> {
             .map(|(k, ce)| (k, Simulation::<Start>::mean_vectors(&ce)))
             .collect();
 
-        for k in meaned_arrivals_evolution.keys() {
-            println!(
-                "Vertex : {:?}, vertices evolution len {:?}",
-                k,
-                meaned_arrivals_evolution[k].len()
-            );
-        }
-
         Simulation {
             degree_sequence: sequence,
             iteration_number: self.iteration_number,
@@ -112,14 +120,16 @@ impl Simulation<Start> {
 }
 
 impl Simulation<Over> {
-    pub fn get_mean_degree_sequence(&self) -> Vec<usize> {
+    pub fn get_degree_sequence(&self) -> Vec<usize> {
         if let Some(ds) = &self.degree_sequence {
             return ds.clone();
         }
         unreachable!("Type state pattern prevent degree sequence being None")
     }
 
-    pub fn get_arrival_evolution<G: VerticesEvolutionMarker>(&self) -> HashMap<usize, Vec<usize>> {
+    pub fn get_mean_arrival_evolution<G: VerticesEvolutionMarker>(
+        &self,
+    ) -> HashMap<usize, Vec<usize>> {
         if let Some(ve) = &self.state.arrival_evolution {
             return ve.clone();
         }

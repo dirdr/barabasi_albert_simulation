@@ -25,7 +25,7 @@ pub trait Step<R> {
 
 /// A Model that is capable of handing it's vertices evolutions
 pub trait VerticesEvolutionMarker {
-    fn vertices_evolution(&self) -> VerticesEvolution;
+    fn vertices_evolution(&self) -> &VerticesEvolution;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -164,18 +164,14 @@ impl FromModelConfig for BarabasiAlbertNoGrowth {
     fn from_model_config(model_config: ModelConfig) -> Self {
         let mut stubs = vec![];
 
-        let mut graph = model_config
+        let graph = model_config
             .starting_graph_type
             .to_graph(model_config.initial_nodes);
 
-        if let GraphType::Disconnected = model_config.starting_graph_type {
-            for _ in 0..model_config.initial_nodes {
-                let node = graph.add_node(());
+        for node in graph.node_indices() {
+            if let GraphType::Disconnected = model_config.starting_graph_type {
                 stubs.push(node);
-            }
-        } else {
-            for node in graph.node_indices() {
-                // TODO fix ce truc horrible
+            } else {
                 for _ in graph.edges(node) {
                     stubs.push(node);
                 }
@@ -203,9 +199,8 @@ where
 {
     fn step(&mut self, rng: &mut R, time: usize) -> bool {
         let new_node = self.graph.add_node(());
-        let arrival_time = self.model_config.initial_nodes + time;
-        if self.model_config.tracked_arrivals.contains(&arrival_time) {
-            self.vertices_evolution.track(arrival_time, new_node);
+        if self.model_config.tracked_arrivals.contains(&time) {
+            self.vertices_evolution.track(time, &new_node);
         }
 
         let uniform = Uniform::new(0, self.stubs.len());
@@ -238,10 +233,8 @@ where
 {
     fn step(&mut self, rng: &mut R, time: usize) -> bool {
         let new_node = self.graph.add_node(());
-
-        let arrival_time = self.model_config.initial_nodes + time;
-        if self.model_config.tracked_arrivals.contains(&arrival_time) {
-            self.vertices_evolution.track(arrival_time, new_node);
+        if self.model_config.tracked_arrivals.contains(&time) {
+            self.vertices_evolution.track(time, &new_node);
         }
 
         let uniform = Uniform::new(0, self.node_count);
@@ -276,10 +269,16 @@ where
             return false;
         }
         let stubs_uniform = Uniform::new(0, self.stubs.len());
-        let random_node = NodeIndex::new(self.initial_uniform.sample(rng));
 
+        let mut random_node = NodeIndex::new(0);
         if self.model_config.tracked_arrivals.contains(&time) {
-            self.vertices_evolution.track(time, random_node);
+            loop {
+                random_node = NodeIndex::new(self.initial_uniform.sample(rng));
+                if !self.vertices_evolution.already_track(&random_node) {
+                    self.vertices_evolution.track(time, &random_node);
+                    break;
+                }
+            }
         }
 
         let mut i = 0;
@@ -310,6 +309,7 @@ where
 
 // TODO une fois que j'ai fait toutes les implementations et que tout marche
 // Regarder si je ne peux pas foutre tout cela dans une blanket implementation
+// Ou alors plus simple dans un wrapper struct Generate!
 impl Gen for BarabasiAlbertClassic {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
@@ -350,20 +350,20 @@ impl Gen for BarabasiAlbertNoGrowth {
 }
 
 impl VerticesEvolutionMarker for BarabasiAlbertClassic {
-    fn vertices_evolution(&self) -> VerticesEvolution {
-        self.vertices_evolution.clone()
+    fn vertices_evolution(&self) -> &VerticesEvolution {
+        &self.vertices_evolution
     }
 }
 
 impl VerticesEvolutionMarker for BarabasiAlbertRandomAttachement {
-    fn vertices_evolution(&self) -> VerticesEvolution {
-        self.vertices_evolution.clone()
+    fn vertices_evolution(&self) -> &VerticesEvolution {
+        &self.vertices_evolution
     }
 }
 
 impl VerticesEvolutionMarker for BarabasiAlbertNoGrowth {
-    fn vertices_evolution(&self) -> VerticesEvolution {
-        self.vertices_evolution.clone()
+    fn vertices_evolution(&self) -> &VerticesEvolution {
+        &self.vertices_evolution
     }
 }
 
@@ -372,7 +372,13 @@ impl GraphType {
         match self {
             GraphType::Complete => complete_graph(initial_nodes),
             GraphType::Star => star_graph(initial_nodes - 1),
-            GraphType::Disconnected => UnGraph::<(), ()>::new_undirected(),
+            GraphType::Disconnected => {
+                let mut g = UnGraph::<(), ()>::new_undirected();
+                for _ in 0..initial_nodes {
+                    g.add_node(());
+                }
+                g
+            }
         }
     }
 }

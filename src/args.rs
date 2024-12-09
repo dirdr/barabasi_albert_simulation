@@ -5,26 +5,26 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    #[arg(long, default_value_t = 10, value_parser= validate_n)]
+    #[arg(short, long, value_parser= validate_n)]
     pub n: usize,
 
-    #[arg(long, default_value_t = 5, value_parser = validate_m)]
+    #[arg(short, long, value_parser = validate_m)]
     pub m: usize,
 
     #[arg(short, long, default_value_t = 100000)]
     pub t_max: usize,
+
+    #[arg(short, long, default_value_t = 100)]
+    pub iterations: usize,
 
     #[arg(short, long, default_value_t, value_enum)]
     pub starting_graph: ArgsGraphType,
 
     #[arg(long, default_value_t, value_enum)]
     pub model: ArgsModelType,
-
-    #[arg(short, long, default_value_t = 100)]
-    pub iterations: usize,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone, Default, Copy)]
+#[derive(clap::ValueEnum, Debug, Clone, Default, Copy, PartialEq, Eq)]
 pub enum ArgsGraphType {
     #[default]
     Complete,

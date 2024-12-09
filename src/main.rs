@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use barabasi_albert_simulation::{
-    args::{Args, ArgsModelType},
+    args::{Args, ArgsGraphType, ArgsModelType},
     fs_utils::write_values_to_file,
     models::{
         BarabasiAlbertClassic, BarabasiAlbertNoGrowth, BarabasiAlbertRandomAttachement, ModelConfig,
@@ -12,6 +12,7 @@ use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    validate_args(&args)?;
 
     // TRACKED_ARRIVALS[i] = k mean we track the evolution of the vertex arriving at time 100,
     // in the graph, counting the initial nodes in the graph.
@@ -56,7 +57,7 @@ fn simulate_custom(
 
     let path = generate_path(custom_path, "degree_sequences", Some("txt"));
 
-    let arrival_evolution = over.get_arrival_evolution::<BarabasiAlbertClassic>();
+    let arrival_evolution = over.get_mean_arrival_evolution::<BarabasiAlbertClassic>();
     for vertex in model_config.tracked_arrivals {
         let custom_path = format!(
             "{}_vertex={}_n={}_m={}_tmax={}_it={}",
@@ -68,13 +69,13 @@ fn simulate_custom(
             over.iteration_number
         );
         let vertices_evolution_path = generate_path(custom_path, "vertices_evolution", Some("txt"));
-        let value = arrival_evolution[vertex].clone();
-        println!("{:?}", value);
 
-        write_values_to_file(value, vertices_evolution_path)?;
+        if let Some(value) = arrival_evolution.get(vertex) {
+            write_values_to_file(value.clone(), vertices_evolution_path)?;
+        }
     }
 
-    let degree_sequence = over.get_mean_degree_sequence();
+    let degree_sequence = over.get_degree_sequence();
     write_values_to_file(degree_sequence, path)?;
     Ok(())
 }
@@ -89,4 +90,18 @@ fn generate_path(
         path.set_extension(extension);
     }
     path
+}
+
+fn validate_args(args: &Args) -> anyhow::Result<()> {
+    if matches!(
+        args.model,
+        ArgsModelType::GrowthPreferential | ArgsModelType::GrowthRandom
+    ) && args.starting_graph == ArgsGraphType::Disconnected
+    {
+        Err(anyhow::anyhow!(
+            "Starting graph `Disconnected` is not allowed with models `GrowthPreferential` or `GrowthRandom`."
+        ))
+    } else {
+        Ok(())
+    }
 }

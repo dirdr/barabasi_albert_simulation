@@ -5,6 +5,8 @@ use petgraph::graph::{NodeIndex, UnGraph};
 pub trait TrackVertices {
     fn get_arrival_evolution(&self, arrival_time: &usize) -> Option<Vec<usize>>;
     fn update(&mut self, graph: &UnGraph<(), ()>);
+    fn track(&mut self, arrival: usize, vertex: &NodeIndex);
+    fn already_track(&self, vertex: &NodeIndex) -> bool;
 }
 
 #[derive(Clone)]
@@ -25,11 +27,6 @@ impl VerticesEvolution {
             vertices_evolution: HashMap::new(),
             arrival_map: HashMap::new(),
         }
-    }
-
-    pub fn track(&mut self, arrival: usize, vertex: NodeIndex) {
-        self.tracked_vertices.push(vertex);
-        self.arrival_map.insert(arrival, vertex);
     }
 }
 
@@ -55,5 +52,14 @@ impl TrackVertices for VerticesEvolution {
                 .or_default()
                 .push(graph.neighbors(*vertex).count())
         }
+    }
+
+    fn track(&mut self, arrival: usize, vertex: &NodeIndex) {
+        self.tracked_vertices.push(*vertex);
+        self.arrival_map.insert(arrival, *vertex);
+    }
+
+    fn already_track(&self, vertex: &NodeIndex) -> bool {
+        self.tracked_vertices.contains(vertex)
     }
 }
