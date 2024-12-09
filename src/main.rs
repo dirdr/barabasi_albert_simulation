@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use barabasi_albert_simulation::{
     args::{Args, ArgsModelType},
+    fs_utils::write_values_to_file,
     models::{
         BarabasiAlbertClassic, BarabasiAlbertNoGrowth, BarabasiAlbertRandomAttachement, ModelConfig,
     },
     simulation::Simulation,
-    utils::write_values_to_file,
 };
 use clap::Parser;
 

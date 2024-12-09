@@ -469,3 +469,66 @@ impl<N, E> Complete for UnGraph<N, E> {
         self.edge_count() == expected_edges
     }
 }
+
+#[cfg(test)]
+mod test {
+    use petgraph::visit::EdgeRef;
+
+    use crate::models::{BarabasiAlbertClassic, FromModelConfig, Gen, GraphType, ModelConfig};
+
+    const CONFIG: ModelConfig = ModelConfig {
+        initial_nodes: 5,
+        edges_increment: 3,
+        end_time: 10,
+        starting_graph_type: GraphType::Complete,
+        tracked_vertices: &[],
+    };
+
+    #[test]
+    fn test_barabasi_classic_node_count() {
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(CONFIG);
+        let graph = model.generate();
+
+        // Total nodes = Initial nodes + nodes added at each time step
+        assert_eq!(
+            graph.node_count(),
+            model.model_config.initial_nodes + model.model_config.end_time
+        );
+    }
+
+    #[test]
+    fn test_barabasi_classic_edge_count() {
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(CONFIG);
+        let graph = model.generate();
+
+        // Initial edges = (n * (n - 1)) / 2 for a fully connected graph
+        let initial_edges = (CONFIG.initial_nodes * (CONFIG.initial_nodes - 1)) / 2;
+        let expected_edges = initial_edges + (CONFIG.edges_increment * CONFIG.end_time);
+
+        assert_eq!(graph.edge_count(), expected_edges);
+    }
+
+    #[test]
+    fn test_barabasi_classic_no_multi_edges() {
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(CONFIG);
+        let graph = model.generate();
+
+        for node in graph.node_indices() {
+            let mut neighbors = vec![];
+            for edge in graph.edges(node) {
+                let target = edge.target();
+                assert!(!neighbors.contains(&target), "Multi-edge detected!");
+                neighbors.push(target);
+            }
+        }
+    }
+
+    #[test]
+    fn test_barabasi_classic_graph_connectivity() {
+        let mut model: BarabasiAlbertClassic = FromModelConfig::from_model_config(CONFIG);
+        let graph = model.generate();
+
+        let connected_components = petgraph::algo::connected_components(&graph);
+        assert_eq!(connected_components, 1, "Graph is not connected");
+    }
+}
