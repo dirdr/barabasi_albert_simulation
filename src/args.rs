@@ -3,7 +3,18 @@ use core::fmt;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "barabasi_albert_simulation",
+    author = "Adrien Pelfresne <adrien.pelfresne@gmail.com>",
+    about = "A Barabasi-Albert simulation, capable of constructing the classic model and two variants",
+    long_about = None,
+    version,
+    help_template = "\
+    {before-help}{name} v{version} by {author}
+    {about-with-newline}
+    {usage-heading} {usage}
+    {all-args}{after-help}"
+)]
 pub struct Args {
     #[arg(short, long, value_parser= validate_n)]
     pub n: usize,
@@ -20,7 +31,7 @@ pub struct Args {
     #[arg(short, long, default_value_t, value_enum)]
     pub starting_graph: ArgsGraphType,
 
-    #[arg(long, default_value_t, value_enum)]
+    #[arg(long, value_enum)]
     pub model: ArgsModelType,
 }
 
@@ -32,10 +43,9 @@ pub enum ArgsGraphType {
     Disconnected,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone, Default, Copy)]
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
 #[value(rename_all = "snake_case")]
 pub enum ArgsModelType {
-    #[default]
     GrowthPreferential,
     NoGrowthPreferential,
     GrowthRandom,
