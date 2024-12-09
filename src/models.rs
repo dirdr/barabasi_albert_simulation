@@ -269,15 +269,13 @@ where
             return false;
         }
         let stubs_uniform = Uniform::new(0, self.stubs.len());
+        let mut random_node = NodeIndex::new(self.initial_uniform.sample(rng));
 
-        let mut random_node = NodeIndex::new(0);
+        // Find a non-tracked node (There is a small chance that the random node for arrival `time` has already been picked
         if self.model_config.tracked_arrivals.contains(&time) {
-            loop {
+            while !self.vertices_evolution.already_track(&random_node) {
                 random_node = NodeIndex::new(self.initial_uniform.sample(rng));
-                if !self.vertices_evolution.already_track(&random_node) {
-                    self.vertices_evolution.track(time, &random_node);
-                    break;
-                }
+                self.vertices_evolution.track(time, &random_node);
             }
         }
 

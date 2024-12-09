@@ -89,10 +89,6 @@ impl Simulation<Start> {
                     continue;
                 }
 
-                // if arrival_evolution.as_ref().unwrap().len() == 1 {
-                //     println!("arrival évolution bzr : {:?}", arrival_evolution);
-                // }
-
                 all_arrival_evolution
                     .entry(*arrival)
                     .or_default()
