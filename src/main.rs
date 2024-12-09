@@ -57,7 +57,7 @@ fn simulate_custom(
     let path = generate_path(custom_path, "degree_sequences", Some("txt"));
 
     let vertices_evolution = over.get_vertex_evolution::<BarabasiAlbertClassic>();
-    for vertex in model_config.tracked_vertices {
+    for vertex in model_config.tracked_timesteps {
         let custom_path = format!(
             "{}_vertex={}_n={}_m={}_tmax={}_it={}",
             model_name,

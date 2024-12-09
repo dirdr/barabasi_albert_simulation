@@ -5,11 +5,10 @@ use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{complete_graph, star_graph};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
 
-use crate::args::{Args, ArgsGraphType};
-
-pub trait Complete {
-    fn is_complete(&self) -> bool;
-}
+use crate::{
+    args::{Args, ArgsGraphType},
+    graph_utils::Complete,
+};
 
 /// A Model that is capable of itself from a `ModelConfig`
 pub trait FromModelConfig {
@@ -26,20 +25,10 @@ pub trait Step<R> {
     fn step(&mut self, rng: &mut R) -> bool;
 }
 
-/// A Model that is able to compute it's degree sequence
-pub trait DegreeSequence {
-    fn degree_sequence(&self) -> Vec<usize>;
-}
-
 /// A Model that is able to track the evolution of a vertex into the simulation
 pub trait TrackVertices {
     fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize>;
     fn update_vertices_evolution(&mut self, time: usize);
-}
-
-/// A graph that is able to give a name
-pub trait Name {
-    fn get_name(&self) -> String;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -61,7 +50,7 @@ pub struct ModelConfig {
     // Times `t` at which we start tracking a vertex evolution,
     // The vertex is either the one added at time `t` for `BarabasiAlbertClassic` and `BarabasiAlbertRandomAttachement`,
     // or the node connected at time `t` for `BarabasiAlbertNoGrowth`.
-    pub tracked_vertices: &'static [usize],
+    pub tracked_timesteps: &'static [usize],
 }
 
 /// A Barabasi-Albert model with vertex growth and preferential attachement
@@ -103,7 +92,7 @@ pub struct BarabasiAlbertNoGrowth {
 }
 
 impl ModelConfig {
-    pub fn from_args(args: &Args, tracked_vertices: &'static [usize]) -> Self {
+    pub fn from_args(args: &Args, tracked_timesteps: &'static [usize]) -> Self {
         assert!(
             args.n >= 1,
             "The number of initial vertices must be greater than 1"
@@ -128,7 +117,7 @@ impl ModelConfig {
                 ArgsGraphType::Star => GraphType::Star,
                 ArgsGraphType::Disconnected => GraphType::Disconnected,
             },
-            tracked_vertices,
+            tracked_timesteps,
         }
     }
 }
@@ -301,7 +290,7 @@ where
         // Add the node that have been picked at time step i to the list of tracked vertex
         if self
             .model_config
-            .tracked_vertices
+            .tracked_timesteps
             .contains(&self.current_time_step)
         {
             self.tracked_vertices.push(random_node);
@@ -387,7 +376,7 @@ impl TrackVertices for BarabasiAlbertClassic {
     }
 
     fn update_vertices_evolution(&mut self, time: usize) {
-        for vertex in self.model_config.tracked_vertices {
+        for vertex in self.model_config.tracked_timesteps {
             let node_index = NodeIndex::new(*vertex);
             // Only start updating the node degree evolution if we are at least at time step where
             // he arrive
@@ -412,7 +401,7 @@ impl TrackVertices for BarabasiAlbertRandomAttachement {
     }
 
     fn update_vertices_evolution(&mut self, time: usize) {
-        for vertex in self.model_config.tracked_vertices {
+        for vertex in self.model_config.tracked_timesteps {
             let node_index = NodeIndex::new(*vertex);
             // Only start updating the node degree evolution if we are at least at time step where
             // he arrive
@@ -451,25 +440,6 @@ impl TrackVertices for BarabasiAlbertNoGrowth {
     }
 }
 
-impl<N, E> DegreeSequence for UnGraph<N, E> {
-    fn degree_sequence(&self) -> Vec<usize> {
-        let mut out = vec![];
-        for node in self.node_indices() {
-            let num = self.edges(node).count();
-            out.push(num);
-        }
-        out
-    }
-}
-
-impl<N, E> Complete for UnGraph<N, E> {
-    fn is_complete(&self) -> bool {
-        let num_nodes = self.node_count();
-        let expected_edges = (num_nodes * (num_nodes - 1)) / 2;
-        self.edge_count() == expected_edges
-    }
-}
-
 #[cfg(test)]
 mod test {
     use petgraph::visit::EdgeRef;
@@ -481,7 +451,7 @@ mod test {
         edges_increment: 3,
         end_time: 10,
         starting_graph_type: GraphType::Complete,
-        tracked_vertices: &[],
+        tracked_timesteps: &[],
     };
 
     #[test]
