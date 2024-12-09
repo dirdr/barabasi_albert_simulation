@@ -273,10 +273,10 @@ where
 
         // Find a non-tracked node (There is a small chance that the random node for arrival `time` has already been picked
         if self.model_config.tracked_arrivals.contains(&time) {
-            while !self.vertices_evolution.already_track(&random_node) {
+            while self.vertices_evolution.already_track(&random_node) {
                 random_node = NodeIndex::new(self.initial_uniform.sample(rng));
-                self.vertices_evolution.track(time, &random_node);
             }
+            self.vertices_evolution.track(time, &random_node);
         }
 
         let mut i = 0;

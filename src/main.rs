@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::anyhow;
 use barabasi_albert_simulation::{
     args::{Args, ArgsGraphType, ArgsModelType},
     fs_utils::write_values_to_file,
@@ -58,11 +59,11 @@ fn simulate_custom(
     let path = generate_path(custom_path, "degree_sequences", Some("txt"));
 
     let arrival_evolution = over.get_mean_arrival_evolution::<BarabasiAlbertClassic>();
-    for vertex in model_config.tracked_arrivals {
+    for arrival in model_config.tracked_arrivals {
         let custom_path = format!(
             "{}_vertex={}_n={}_m={}_tmax={}_it={}",
             model_name,
-            vertex,
+            arrival,
             &model_config.initial_nodes,
             &model_config.edges_increment,
             &model_config.end_time,
@@ -70,8 +71,13 @@ fn simulate_custom(
         );
         let vertices_evolution_path = generate_path(custom_path, "vertices_evolution", Some("txt"));
 
-        if let Some(value) = arrival_evolution.get(vertex) {
+        if let Some(value) = arrival_evolution.get(arrival) {
             write_values_to_file(value.clone(), vertices_evolution_path)?;
+        } else {
+            return Err(anyhow!(format!(
+                "Cannot export the vertex {:?} evolution",
+                arrival
+            )));
         }
     }
 
