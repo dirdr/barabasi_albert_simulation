@@ -48,12 +48,13 @@ fn simulate_custom(
     let model_name = format!("{}", model_type);
 
     let custom_path = format!(
-        "{}_n={}_m={}_tmax={}_it={}",
+        "{}_n={}_m={}_tmax={}_it={}_starting={}",
         model_name,
         &model_config.initial_nodes,
         &model_config.edges_increment,
         &model_config.end_time,
-        over.iteration_number
+        over.iteration_number,
+        &model_config.starting_graph_type
     );
 
     let path = generate_path(custom_path, "degree_sequences", Some("txt"));
@@ -61,13 +62,14 @@ fn simulate_custom(
     let arrival_evolution = over.get_mean_arrival_evolution::<BarabasiAlbertClassic>();
     for arrival in model_config.tracked_arrivals {
         let custom_path = format!(
-            "{}_vertex={}_n={}_m={}_tmax={}_it={}",
+            "{}_vertex={}_n={}_m={}_tmax={}_it={}_starting={}",
             model_name,
             arrival,
             &model_config.initial_nodes,
             &model_config.edges_increment,
             &model_config.end_time,
-            over.iteration_number
+            over.iteration_number,
+            &model_config.starting_graph_type
         );
         let vertices_evolution_path = generate_path(custom_path, "vertices_evolution", Some("txt"));
 

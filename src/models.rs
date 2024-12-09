@@ -1,3 +1,6 @@
+use core::fmt;
+use std::fmt::Display;
+
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{complete_graph, star_graph};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
@@ -378,6 +381,17 @@ impl GraphType {
                 g
             }
         }
+    }
+}
+
+impl Display for GraphType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            GraphType::Complete => "complete",
+            GraphType::Star => "star",
+            GraphType::Disconnected => "disconnected",
+        };
+        write!(f, "{}", text)
     }
 }
 
