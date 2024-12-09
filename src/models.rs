@@ -20,7 +20,7 @@ pub trait Gen {
 
 /// A Model that is capable of stepping into the simulation
 pub trait Step<R> {
-    fn step(&mut self, rng: &mut R) -> bool;
+    fn step(&mut self, rng: &mut R, time: usize) -> bool;
 }
 
 /// A Model that is capable of handing it's vertices evolutions
@@ -80,7 +80,6 @@ pub struct BarabasiAlbertNoGrowth {
     picked: Vec<bool>,
     targets: Vec<NodeIndex>,
     initial_uniform: Uniform<usize>,
-    current_time_step: usize,
 }
 
 impl ModelConfig {
@@ -130,20 +129,13 @@ impl FromModelConfig for BarabasiAlbertClassic {
         let picked = vec![false; model_config.initial_nodes + model_config.end_time];
         let targets = vec![NodeIndex::new(0); model_config.edges_increment];
 
-        // Petgraph assign NodeIndex incrementaly when we add node in the graph,
-        // So NodeIndex(100) will be the 100 node in the graph
-        let mut vertices_evolution = VerticesEvolution::new();
-        for &v in model_config.tracked_arrivals {
-            vertices_evolution.track_vertex(v, NodeIndex::new(v));
-        }
-
         Self {
             model_config,
             graph,
             stubs,
             picked,
             targets,
-            vertices_evolution,
+            vertices_evolution: VerticesEvolution::new(),
         }
     }
 }
@@ -201,7 +193,6 @@ impl FromModelConfig for BarabasiAlbertNoGrowth {
             targets,
             vertices_evolution: VerticesEvolution::new(),
             initial_uniform: Uniform::new(0, model_config.initial_nodes),
-            current_time_step: 0,
         }
     }
 }
@@ -210,8 +201,13 @@ impl<R> Step<R> for BarabasiAlbertClassic
 where
     R: Rng + Sized,
 {
-    fn step(&mut self, rng: &mut R) -> bool {
+    fn step(&mut self, rng: &mut R, time: usize) -> bool {
         let new_node = self.graph.add_node(());
+        let arrival_time = self.model_config.initial_nodes + time;
+        if self.model_config.tracked_arrivals.contains(&arrival_time) {
+            self.vertices_evolution.track(arrival_time, new_node);
+        }
+
         let uniform = Uniform::new(0, self.stubs.len());
         let mut i = 0;
         while i < self.model_config.edges_increment {
@@ -240,8 +236,14 @@ impl<R> Step<R> for BarabasiAlbertRandomAttachement
 where
     R: Rng + Sized,
 {
-    fn step(&mut self, rng: &mut R) -> bool {
+    fn step(&mut self, rng: &mut R, time: usize) -> bool {
         let new_node = self.graph.add_node(());
+
+        let arrival_time = self.model_config.initial_nodes + time;
+        if self.model_config.tracked_arrivals.contains(&arrival_time) {
+            self.vertices_evolution.track(arrival_time, new_node);
+        }
+
         let uniform = Uniform::new(0, self.node_count);
         let mut i = 0;
         while i < self.model_config.edges_increment {
@@ -268,7 +270,7 @@ impl<R> Step<R> for BarabasiAlbertNoGrowth
 where
     R: Rng + Sized,
 {
-    fn step(&mut self, rng: &mut R) -> bool {
+    fn step(&mut self, rng: &mut R, time: usize) -> bool {
         // Explicit check of complete graph to avoid adding duplicate edges
         if self.graph.is_complete() {
             return false;
@@ -276,13 +278,8 @@ where
         let stubs_uniform = Uniform::new(0, self.stubs.len());
         let random_node = NodeIndex::new(self.initial_uniform.sample(rng));
 
-        if self
-            .model_config
-            .tracked_arrivals
-            .contains(&self.current_time_step)
-        {
-            self.vertices_evolution
-                .track_vertex(self.current_time_step, random_node);
+        if self.model_config.tracked_arrivals.contains(&time) {
+            self.vertices_evolution.track(time, random_node);
         }
 
         let mut i = 0;
@@ -316,8 +313,8 @@ where
 impl Gen for BarabasiAlbertClassic {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for _ in 1..=self.model_config.end_time {
-            if !self.step(&mut rng) {
+        for time in 1..=self.model_config.end_time {
+            if !self.step(&mut rng, time) {
                 break;
             }
             self.vertices_evolution.update(&self.graph);
@@ -329,8 +326,8 @@ impl Gen for BarabasiAlbertClassic {
 impl Gen for BarabasiAlbertRandomAttachement {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for _ in 1..=self.model_config.end_time {
-            if !self.step(&mut rng) {
+        for time in 1..=self.model_config.end_time {
+            if !self.step(&mut rng, time) {
                 break;
             }
             self.vertices_evolution.update(&self.graph);
@@ -342,8 +339,8 @@ impl Gen for BarabasiAlbertRandomAttachement {
 impl Gen for BarabasiAlbertNoGrowth {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for _ in 1..=self.model_config.end_time {
-            if !self.step(&mut rng) {
+        for time in 1..=self.model_config.end_time {
+            if !self.step(&mut rng, time) {
                 break;
             }
             self.vertices_evolution.update(&self.graph);

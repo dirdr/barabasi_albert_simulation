@@ -69,6 +69,7 @@ fn simulate_custom(
         );
         let vertices_evolution_path = generate_path(custom_path, "vertices_evolution", Some("txt"));
         let value = arrival_evolution[vertex].clone();
+        println!("{:?}", value);
 
         write_values_to_file(value, vertices_evolution_path)?;
     }

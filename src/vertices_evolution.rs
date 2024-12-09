@@ -10,6 +10,8 @@ pub trait TrackVertices {
 #[derive(Clone)]
 pub struct VerticesEvolution {
     /// List of effective tracked vertices index
+    /// The struct will update vertices in this list so they should not be added
+    /// Before but rather during the simulation runtime
     tracked_vertices: Vec<NodeIndex>,
     vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
     /// Map the arrival time in the graph with the corresponding NodeIndex in the graph
@@ -25,7 +27,7 @@ impl VerticesEvolution {
         }
     }
 
-    pub fn track_vertex(&mut self, arrival: usize, vertex: NodeIndex) {
+    pub fn track(&mut self, arrival: usize, vertex: NodeIndex) {
         self.tracked_vertices.push(vertex);
         self.arrival_map.insert(arrival, vertex);
     }
