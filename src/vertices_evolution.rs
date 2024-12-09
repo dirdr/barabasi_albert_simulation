@@ -4,7 +4,7 @@ use petgraph::graph::{NodeIndex, UnGraph};
 
 pub trait TrackVertices {
     fn get_arrival_evolution(&self, arrival_time: &usize) -> Option<Vec<usize>>;
-    fn update(&mut self, graph: &UnGraph<(), ()>, time: usize);
+    fn update(&mut self, graph: &UnGraph<(), ()>);
 }
 
 #[derive(Clone)]
@@ -46,14 +46,8 @@ impl TrackVertices for VerticesEvolution {
         self.vertices_evolution.get(node).cloned()
     }
 
-    fn update(&mut self, graph: &UnGraph<(), ()>, time: usize) {
+    fn update(&mut self, graph: &UnGraph<(), ()>) {
         for vertex in &self.tracked_vertices {
-            // Only start updating the node degree evolution if we are at least at time step where
-            // he arrive
-            //VERIFIER CELA POUR LE MODELE NO GROWTH
-            if vertex.index() > time {
-                continue;
-            }
             self.vertices_evolution
                 .entry(*vertex)
                 .or_default()

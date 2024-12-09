@@ -316,11 +316,11 @@ where
 impl Gen for BarabasiAlbertClassic {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for time in 1..=self.model_config.end_time {
+        for _ in 1..=self.model_config.end_time {
             if !self.step(&mut rng) {
                 break;
             }
-            self.vertices_evolution.update(&self.graph, time);
+            self.vertices_evolution.update(&self.graph);
         }
         self.graph.clone()
     }
@@ -329,11 +329,11 @@ impl Gen for BarabasiAlbertClassic {
 impl Gen for BarabasiAlbertRandomAttachement {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for time in 1..=self.model_config.end_time {
+        for _ in 1..=self.model_config.end_time {
             if !self.step(&mut rng) {
                 break;
             }
-            self.vertices_evolution.update(&self.graph, time);
+            self.vertices_evolution.update(&self.graph);
         }
         self.graph.clone()
     }
@@ -342,11 +342,11 @@ impl Gen for BarabasiAlbertRandomAttachement {
 impl Gen for BarabasiAlbertNoGrowth {
     fn generate(&mut self) -> UnGraph<(), ()> {
         let mut rng = thread_rng();
-        for time in 1..=self.model_config.end_time {
+        for _ in 1..=self.model_config.end_time {
             if !self.step(&mut rng) {
                 break;
             }
-            self.vertices_evolution.update(&self.graph, time);
+            self.vertices_evolution.update(&self.graph);
         }
         self.graph.clone()
     }
