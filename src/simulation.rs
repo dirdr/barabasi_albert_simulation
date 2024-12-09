@@ -94,10 +94,18 @@ impl Simulation<Start> {
                 sequence = Some(graph.degree_sequence());
             }
         }
-        let meaned_vertices_evolution = vertices_evolution
+        let meaned_vertices_evolution: HashMap<NodeIndex, Vec<usize>> = vertices_evolution
             .into_iter()
             .map(|(k, ce)| (k, Simulation::<Start>::mean_vectors(&ce)))
             .collect();
+
+        for k in meaned_vertices_evolution.keys() {
+            println!(
+                "Vertex : {:?}, vertices evolution len {:?}",
+                k,
+                meaned_vertices_evolution[k].len()
+            );
+        }
 
         Simulation {
             degree_sequence: sequence,

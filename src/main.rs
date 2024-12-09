@@ -3,8 +3,7 @@ use std::path::{Path, PathBuf};
 use barabasi_albert_simulation::{
     args::{Args, ArgsModelType},
     models::{
-        BarabasiAlbertClassic, BarabasiAlbertNoGrowth, BarabasiAlbertPetgraphWrapper,
-        BarabasiAlbertRandomAttachement, ModelConfig,
+        BarabasiAlbertClassic, BarabasiAlbertNoGrowth, BarabasiAlbertRandomAttachement, ModelConfig,
     },
     simulation::Simulation,
     utils::write_values_to_file,
@@ -13,9 +12,14 @@ use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    static TRACKED_VERTICES: &[usize] = &[1, 10, 100, 1000];
-    let model_config = ModelConfig::from_args(&args, TRACKED_VERTICES);
-    simulate_custom(&model_config, args.iteration_number, args.model)?;
+
+    // Times `t` at which we start tracking a vertex evolution,
+    // The vertex is either the one added at time `t` for `BarabasiAlbertClassic` and `BarabasiAlbertRandomAttachement`,
+    // or the node connected at time `t` for `BarabasiAlbertNoGrowth`.
+    static TRACKED_TIMESTEPS: &[usize] = &[1, 10, 100, 1000];
+
+    let model_config = ModelConfig::from_args(&args, TRACKED_TIMESTEPS);
+    simulate_custom(&model_config, args.iterations, args.model)?;
     //simulate_builtin(&model_config, args.iteration_number)?;
     Ok(())
 }
@@ -71,23 +75,6 @@ fn simulate_custom(
 
     let degree_sequence = over.get_mean_degree_sequence();
     write_values_to_file(degree_sequence, path)?;
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn simulate_builtin(model_config: &ModelConfig, iteration_number: usize) -> anyhow::Result<()> {
-    let sim_builtin = Simulation::new(iteration_number);
-    let over = sim_builtin.simulate::<BarabasiAlbertPetgraphWrapper>(*model_config);
-    let custom_path = format!(
-        "BA_BUILTIN_n={}_m={}_tmax={}_it={}",
-        &model_config.initial_nodes,
-        &model_config.edges_increment,
-        &model_config.end_time,
-        over.iteration_number
-    );
-    let ds_path = generate_path(custom_path.clone(), "degree_sequences", Some("txt"));
-    let degree_sequence = over.get_mean_degree_sequence();
-    write_values_to_file(degree_sequence, ds_path)?;
     Ok(())
 }
 

@@ -5,23 +5,23 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    #[arg(short, long, default_value_t = 10, value_parser= validate_n)]
+    #[arg(long, default_value_t = 10, value_parser= validate_n)]
     pub n: usize,
 
-    #[arg(short, long, default_value_t = 5, value_parser = validate_m)]
+    #[arg(long, default_value_t = 5, value_parser = validate_m)]
     pub m: usize,
 
     #[arg(short, long, default_value_t = 100000)]
-    pub barabasi_end_time: usize,
+    pub t_max: usize,
 
     #[arg(short, long, default_value_t, value_enum)]
-    pub barabasi_starting_graph_type: ArgsGraphType,
+    pub starting_graph: ArgsGraphType,
 
     #[arg(long, default_value_t, value_enum)]
     pub model: ArgsModelType,
 
     #[arg(short, long, default_value_t = 100)]
-    pub iteration_number: usize,
+    pub iterations: usize,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone, Default, Copy)]
