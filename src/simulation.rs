@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use petgraph::graph::NodeIndex;
-
 use crate::{
     graph_utils::DegreeSequence,
-    models::{FromModelConfig, Gen, ModelConfig, TrackVertices},
+    models::{FromModelConfig, Gen, ModelConfig, VerticesEvolutionMarker},
+    vertices_evolution::TrackVertices,
 };
 
 /// Barabasi-Albert model is random by nature, to have analysis on the models
@@ -21,7 +20,7 @@ pub struct Simulation<S: SimulationState> {
 pub trait SimulationState {}
 
 pub struct Over {
-    pub vertices_evolution: Option<HashMap<NodeIndex, Vec<usize>>>,
+    pub arrival_evolution: Option<HashMap<usize, Vec<usize>>>,
 }
 
 pub struct Start {}
@@ -59,54 +58,46 @@ impl Simulation<Start> {
         }
     }
 
-    pub fn simulate<G: FromModelConfig + Gen>(self, model_config: ModelConfig) -> Simulation<Over> {
-        let mut sequence = None;
-        for _ in 0..self.iteration_number {
-            let mut model: G = FromModelConfig::from_model_config(model_config);
-            let graph = model.generate();
-            if sequence.is_none() {
-                sequence = Some(graph.degree_sequence());
-            }
-        }
-        Simulation {
-            degree_sequence: sequence,
-            iteration_number: self.iteration_number,
-            state: Over {
-                vertices_evolution: None,
-            },
-        }
-    }
-
-    pub fn simulate_with_tracking<G: FromModelConfig + Gen + TrackVertices>(
+    pub fn simulate<M: FromModelConfig + Gen + VerticesEvolutionMarker>(
         self,
         model_config: ModelConfig,
     ) -> Simulation<Over> {
         let mut sequence = None;
-        let mut vertices_evolution: HashMap<NodeIndex, Vec<Vec<usize>>> = HashMap::new();
+        let mut all_arrival_evolution: HashMap<usize, Vec<Vec<usize>>> = HashMap::new();
 
         for _ in 0..self.iteration_number {
-            let mut model: G = FromModelConfig::from_model_config(model_config);
+            let mut model: M = FromModelConfig::from_model_config(model_config);
+            let vertices_evolution = model.vertices_evolution();
+
             let graph = model.generate();
-            for vid in model_config.tracked_timesteps {
-                vertices_evolution
-                    .entry(NodeIndex::new(*vid))
+
+            for arrival in model_config.tracked_arrivals {
+                let arrival_evolution = vertices_evolution.get_arrival_evolution(arrival);
+                if arrival_evolution.is_none() {
+                    panic!("Cannot retreive arrival evolution");
+                }
+
+                all_arrival_evolution
+                    .entry(*arrival)
                     .or_default()
-                    .push(model.get_vertex_evolution(NodeIndex::new(*vid)))
+                    .push(arrival_evolution.unwrap());
             }
+
             if sequence.is_none() {
                 sequence = Some(graph.degree_sequence());
             }
         }
-        let meaned_vertices_evolution: HashMap<NodeIndex, Vec<usize>> = vertices_evolution
+
+        let meaned_arrivals_evolution: HashMap<usize, Vec<usize>> = all_arrival_evolution
             .into_iter()
             .map(|(k, ce)| (k, Simulation::<Start>::mean_vectors(&ce)))
             .collect();
 
-        for k in meaned_vertices_evolution.keys() {
+        for k in meaned_arrivals_evolution.keys() {
             println!(
                 "Vertex : {:?}, vertices evolution len {:?}",
                 k,
-                meaned_vertices_evolution[k].len()
+                meaned_arrivals_evolution[k].len()
             );
         }
 
@@ -114,7 +105,7 @@ impl Simulation<Start> {
             degree_sequence: sequence,
             iteration_number: self.iteration_number,
             state: Over {
-                vertices_evolution: Some(meaned_vertices_evolution),
+                arrival_evolution: Some(meaned_arrivals_evolution),
             },
         }
     }
@@ -128,8 +119,8 @@ impl Simulation<Over> {
         unreachable!("Type state pattern prevent degree sequence being None")
     }
 
-    pub fn get_vertex_evolution<G: TrackVertices>(&self) -> HashMap<NodeIndex, Vec<usize>> {
-        if let Some(ve) = &self.state.vertices_evolution {
+    pub fn get_arrival_evolution<G: VerticesEvolutionMarker>(&self) -> HashMap<usize, Vec<usize>> {
+        if let Some(ve) = &self.state.arrival_evolution {
             return ve.clone();
         }
         unreachable!("Type state pattern prevent vertex evolution from being None")

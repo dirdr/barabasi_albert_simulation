@@ -1,6 +1,3 @@
-use core::panic;
-use std::collections::HashMap;
-
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph_gen::{complete_graph, star_graph};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
@@ -8,9 +5,10 @@ use rand::{distributions::Uniform, prelude::Distribution, thread_rng, Rng};
 use crate::{
     args::{Args, ArgsGraphType},
     graph_utils::Complete,
+    vertices_evolution::{TrackVertices, VerticesEvolution},
 };
 
-/// A Model that is capable of itself from a `ModelConfig`
+/// A Model that can be created from a `ModelConfig`
 pub trait FromModelConfig {
     fn from_model_config(model_config: ModelConfig) -> Self;
 }
@@ -25,10 +23,9 @@ pub trait Step<R> {
     fn step(&mut self, rng: &mut R) -> bool;
 }
 
-/// A Model that is able to track the evolution of a vertex into the simulation
-pub trait TrackVertices {
-    fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize>;
-    fn update_vertices_evolution(&mut self, time: usize);
+/// A Model that is capable of handing it's vertices evolutions
+pub trait VerticesEvolutionMarker {
+    fn vertices_evolution(&self) -> VerticesEvolution;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -50,49 +47,44 @@ pub struct ModelConfig {
     // Times `t` at which we start tracking a vertex evolution,
     // The vertex is either the one added at time `t` for `BarabasiAlbertClassic` and `BarabasiAlbertRandomAttachement`,
     // or the node connected at time `t` for `BarabasiAlbertNoGrowth`.
-    pub tracked_timesteps: &'static [usize],
+    pub tracked_arrivals: &'static [usize],
 }
 
 /// A Barabasi-Albert model with vertex growth and preferential attachement
 pub struct BarabasiAlbertClassic {
-    pub model_config: ModelConfig,
-    graph: UnGraph<(), ()>,
-    stubs: Vec<NodeIndex>,
-    picked: Vec<bool>,
-    targets: Vec<NodeIndex>,
-    // TODO refactor pour prendre une strcture commune qui isole ce comportement
-    vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
-}
-
-/// A Barabasi-Albert model with vertex growth and random attachement
-pub struct BarabasiAlbertRandomAttachement {
-    pub model_config: ModelConfig,
-    graph: UnGraph<(), ()>,
-    // To avoid calling `graph.node_indices().count()` which is O(n)
-    node_count: usize,
-    picked: Vec<bool>,
-    targets: Vec<NodeIndex>,
-    // TODO refactor pour prendre une strcture commune qui isole ce comportement
-    // Refactor cela pour que cela soit le strcture qui implémente le trait et que je n'ai aps
-    // besoin de implementé en obucle pour tous les trusc
-    vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
-}
-
-/// A Barabasi-Albert model with preferential attachement but without vertex growth.
-pub struct BarabasiAlbertNoGrowth {
+    pub vertices_evolution: VerticesEvolution,
     model_config: ModelConfig,
     graph: UnGraph<(), ()>,
     stubs: Vec<NodeIndex>,
     picked: Vec<bool>,
     targets: Vec<NodeIndex>,
-    tracked_vertices: Vec<NodeIndex>,
-    vertices_evolution: HashMap<NodeIndex, Vec<usize>>,
+}
+
+/// A Barabasi-Albert model with vertex growth and random attachement
+pub struct BarabasiAlbertRandomAttachement {
+    pub vertices_evolution: VerticesEvolution,
+    model_config: ModelConfig,
+    graph: UnGraph<(), ()>,
+    // To avoid calling `graph.node_indices().count()` which is O(n)
+    picked: Vec<bool>,
+    targets: Vec<NodeIndex>,
+    node_count: usize,
+}
+
+/// A Barabasi-Albert model with preferential attachement but without vertex growth.
+pub struct BarabasiAlbertNoGrowth {
+    pub vertices_evolution: VerticesEvolution,
+    model_config: ModelConfig,
+    graph: UnGraph<(), ()>,
+    stubs: Vec<NodeIndex>,
+    picked: Vec<bool>,
+    targets: Vec<NodeIndex>,
     initial_uniform: Uniform<usize>,
     current_time_step: usize,
 }
 
 impl ModelConfig {
-    pub fn from_args(args: &Args, tracked_timesteps: &'static [usize]) -> Self {
+    pub fn from_args(args: &Args, tracked_arrivals: &'static [usize]) -> Self {
         assert!(
             args.n >= 1,
             "The number of initial vertices must be greater than 1"
@@ -117,20 +109,16 @@ impl ModelConfig {
                 ArgsGraphType::Star => GraphType::Star,
                 ArgsGraphType::Disconnected => GraphType::Disconnected,
             },
-            tracked_timesteps,
+            tracked_arrivals,
         }
     }
 }
 
 impl FromModelConfig for BarabasiAlbertClassic {
     fn from_model_config(model_config: ModelConfig) -> Self {
-        let graph: UnGraph<(), ()> = match model_config.starting_graph_type {
-            GraphType::Complete => complete_graph(model_config.initial_nodes),
-            GraphType::Star => star_graph(model_config.initial_nodes - 1),
-            GraphType::Disconnected => {
-                panic!("This initial graph type is only for barabasi-abert no growth")
-            }
-        };
+        let graph = model_config
+            .starting_graph_type
+            .to_graph(model_config.initial_nodes);
 
         let mut stubs = vec![];
         for node in graph.node_indices() {
@@ -142,26 +130,29 @@ impl FromModelConfig for BarabasiAlbertClassic {
         let picked = vec![false; model_config.initial_nodes + model_config.end_time];
         let targets = vec![NodeIndex::new(0); model_config.edges_increment];
 
+        // Petgraph assign NodeIndex incrementaly when we add node in the graph,
+        // So NodeIndex(100) will be the 100 node in the graph
+        let mut vertices_evolution = VerticesEvolution::new();
+        for &v in model_config.tracked_arrivals {
+            vertices_evolution.track_vertex(v, NodeIndex::new(v));
+        }
+
         Self {
             model_config,
             graph,
             stubs,
             picked,
             targets,
-            vertices_evolution: HashMap::new(),
+            vertices_evolution,
         }
     }
 }
 
 impl FromModelConfig for BarabasiAlbertRandomAttachement {
     fn from_model_config(model_config: ModelConfig) -> Self {
-        let graph: UnGraph<(), ()> = match model_config.starting_graph_type {
-            GraphType::Complete => complete_graph(model_config.initial_nodes),
-            GraphType::Star => star_graph(model_config.initial_nodes - 1),
-            GraphType::Disconnected => {
-                panic!("This initial graph type is only for barabasi-abert no growth")
-            }
-        };
+        let graph = model_config
+            .starting_graph_type
+            .to_graph(model_config.initial_nodes);
 
         let picked = vec![false; model_config.initial_nodes + model_config.end_time];
         let targets = vec![NodeIndex::new(0); model_config.edges_increment];
@@ -171,7 +162,7 @@ impl FromModelConfig for BarabasiAlbertRandomAttachement {
             graph,
             picked,
             targets,
-            vertices_evolution: HashMap::new(),
+            vertices_evolution: VerticesEvolution::new(),
             node_count: model_config.initial_nodes,
         }
     }
@@ -179,13 +170,11 @@ impl FromModelConfig for BarabasiAlbertRandomAttachement {
 
 impl FromModelConfig for BarabasiAlbertNoGrowth {
     fn from_model_config(model_config: ModelConfig) -> Self {
-        let mut graph: UnGraph<(), ()> = match model_config.starting_graph_type {
-            GraphType::Complete => complete_graph(model_config.initial_nodes),
-            GraphType::Star => star_graph(model_config.initial_nodes - 1),
-            GraphType::Disconnected => UnGraph::<(), ()>::new_undirected(),
-        };
-
         let mut stubs = vec![];
+
+        let mut graph = model_config
+            .starting_graph_type
+            .to_graph(model_config.initial_nodes);
 
         if let GraphType::Disconnected = model_config.starting_graph_type {
             for _ in 0..model_config.initial_nodes {
@@ -210,9 +199,8 @@ impl FromModelConfig for BarabasiAlbertNoGrowth {
             stubs,
             picked,
             targets,
-            vertices_evolution: HashMap::new(),
+            vertices_evolution: VerticesEvolution::new(),
             initial_uniform: Uniform::new(0, model_config.initial_nodes),
-            tracked_vertices: vec![],
             current_time_step: 0,
         }
     }
@@ -287,14 +275,16 @@ where
         }
         let stubs_uniform = Uniform::new(0, self.stubs.len());
         let random_node = NodeIndex::new(self.initial_uniform.sample(rng));
-        // Add the node that have been picked at time step i to the list of tracked vertex
+
         if self
             .model_config
-            .tracked_timesteps
+            .tracked_arrivals
             .contains(&self.current_time_step)
         {
-            self.tracked_vertices.push(random_node);
+            self.vertices_evolution
+                .track_vertex(self.current_time_step, random_node);
         }
+
         let mut i = 0;
         while i < self.model_config.edges_increment {
             let random_index = stubs_uniform.sample(rng);
@@ -330,7 +320,7 @@ impl Gen for BarabasiAlbertClassic {
             if !self.step(&mut rng) {
                 break;
             }
-            self.update_vertices_evolution(time);
+            self.vertices_evolution.update(&self.graph, time);
         }
         self.graph.clone()
     }
@@ -343,7 +333,7 @@ impl Gen for BarabasiAlbertRandomAttachement {
             if !self.step(&mut rng) {
                 break;
             }
-            self.update_vertices_evolution(time);
+            self.vertices_evolution.update(&self.graph, time);
         }
         self.graph.clone()
     }
@@ -356,86 +346,36 @@ impl Gen for BarabasiAlbertNoGrowth {
             if !self.step(&mut rng) {
                 break;
             }
-            self.update_vertices_evolution(time);
+            self.vertices_evolution.update(&self.graph, time);
         }
         self.graph.clone()
     }
 }
 
-// TODO une fois que j'ai fait toutes les implementations et que tout marche
-// Regarder si je ne peux pas foutre tout cela dans une blanket implementation
-// REGARDER AUSSI si je peux pas wrapper la logique de suivre les tracked vertex dans une structure
-// de donnée custom
-impl TrackVertices for BarabasiAlbertClassic {
-    fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize> {
-        let default = Vec::new();
-        self.vertices_evolution
-            .get(&vertex_id)
-            .unwrap_or(&default)
-            .clone()
-    }
-
-    fn update_vertices_evolution(&mut self, time: usize) {
-        for vertex in self.model_config.tracked_timesteps {
-            let node_index = NodeIndex::new(*vertex);
-            // Only start updating the node degree evolution if we are at least at time step where
-            // he arrive
-            if *vertex > time {
-                continue;
-            }
-            self.vertices_evolution
-                .entry(node_index)
-                .or_default()
-                .push(self.graph.neighbors(node_index).count())
-        }
+impl VerticesEvolutionMarker for BarabasiAlbertClassic {
+    fn vertices_evolution(&self) -> VerticesEvolution {
+        self.vertices_evolution.clone()
     }
 }
 
-impl TrackVertices for BarabasiAlbertRandomAttachement {
-    fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize> {
-        let default = Vec::new();
-        self.vertices_evolution
-            .get(&vertex_id)
-            .unwrap_or(&default)
-            .clone()
-    }
-
-    fn update_vertices_evolution(&mut self, time: usize) {
-        for vertex in self.model_config.tracked_timesteps {
-            let node_index = NodeIndex::new(*vertex);
-            // Only start updating the node degree evolution if we are at least at time step where
-            // he arrive
-            if *vertex > time {
-                continue;
-            }
-            self.vertices_evolution
-                .entry(node_index)
-                .or_default()
-                .push(self.graph.neighbors(node_index).count())
-        }
+impl VerticesEvolutionMarker for BarabasiAlbertRandomAttachement {
+    fn vertices_evolution(&self) -> VerticesEvolution {
+        self.vertices_evolution.clone()
     }
 }
 
-impl TrackVertices for BarabasiAlbertNoGrowth {
-    // TODO mettre une fonction get vertex evolution all pour pouvoir tout gather
-    fn get_vertex_evolution(&self, vertex_id: NodeIndex) -> Vec<usize> {
-        let default = Vec::new();
-        self.vertices_evolution
-            .get(&vertex_id)
-            .unwrap_or(&default)
-            .clone()
+impl VerticesEvolutionMarker for BarabasiAlbertNoGrowth {
+    fn vertices_evolution(&self) -> VerticesEvolution {
+        self.vertices_evolution.clone()
     }
+}
 
-    /// This implementation is different because this time, we don't track the node that we add at
-    /// time i but rather the node that has been choosen to be connected at time `time`, which can
-    /// or not be the `time` vertex.
-    fn update_vertices_evolution(&mut self, _: usize) {
-        for vertex in &self.tracked_vertices {
-            let node_index = vertex;
-            self.vertices_evolution
-                .entry(*node_index)
-                .or_default()
-                .push(self.graph.neighbors(*node_index).count())
+impl GraphType {
+    fn to_graph(self, initial_nodes: usize) -> UnGraph<(), ()> {
+        match self {
+            GraphType::Complete => complete_graph(initial_nodes),
+            GraphType::Star => star_graph(initial_nodes - 1),
+            GraphType::Disconnected => UnGraph::<(), ()>::new_undirected(),
         }
     }
 }
@@ -451,7 +391,7 @@ mod test {
         edges_increment: 3,
         end_time: 10,
         starting_graph_type: GraphType::Complete,
-        tracked_timesteps: &[],
+        tracked_arrivals: &[],
     };
 
     #[test]

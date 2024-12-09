@@ -13,12 +13,12 @@ use clap::Parser;
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    // Times `t` at which we start tracking a vertex evolution,
-    // The vertex is either the one added at time `t` for `BarabasiAlbertClassic` and `BarabasiAlbertRandomAttachement`,
-    // or the node connected at time `t` for `BarabasiAlbertNoGrowth`.
-    static TRACKED_TIMESTEPS: &[usize] = &[1, 10, 100, 1000];
+    // TRACKED_ARRIVALS[i] = k mean we track the evolution of the vertex arriving at time 100,
+    // in the graph, counting the initial nodes in the graph.
+    // For the `BarabasiAlbertNoGrowth` models, the tracked vertex will be the one picked at time i
+    static TRACKED_ARRIVALS: &[usize] = &[1, 10, 100, 1000];
 
-    let model_config = ModelConfig::from_args(&args, TRACKED_TIMESTEPS);
+    let model_config = ModelConfig::from_args(&args, TRACKED_ARRIVALS);
     simulate_custom(&model_config, args.iterations, args.model)?;
     //simulate_builtin(&model_config, args.iteration_number)?;
     Ok(())
@@ -33,13 +33,13 @@ fn simulate_custom(
 
     let over = match model_type {
         ArgsModelType::GrowthPreferential => {
-            sim_custom.simulate_with_tracking::<BarabasiAlbertClassic>(*model_config)
+            sim_custom.simulate::<BarabasiAlbertClassic>(*model_config)
         }
         ArgsModelType::GrowthRandom => {
-            sim_custom.simulate_with_tracking::<BarabasiAlbertRandomAttachement>(*model_config)
+            sim_custom.simulate::<BarabasiAlbertRandomAttachement>(*model_config)
         }
         ArgsModelType::NoGrowthPreferential => {
-            sim_custom.simulate_with_tracking::<BarabasiAlbertNoGrowth>(*model_config)
+            sim_custom.simulate::<BarabasiAlbertNoGrowth>(*model_config)
         }
     };
 
@@ -56,8 +56,8 @@ fn simulate_custom(
 
     let path = generate_path(custom_path, "degree_sequences", Some("txt"));
 
-    let vertices_evolution = over.get_vertex_evolution::<BarabasiAlbertClassic>();
-    for vertex in model_config.tracked_timesteps {
+    let arrival_evolution = over.get_arrival_evolution::<BarabasiAlbertClassic>();
+    for vertex in model_config.tracked_arrivals {
         let custom_path = format!(
             "{}_vertex={}_n={}_m={}_tmax={}_it={}",
             model_name,
@@ -68,7 +68,7 @@ fn simulate_custom(
             over.iteration_number
         );
         let vertices_evolution_path = generate_path(custom_path, "vertices_evolution", Some("txt"));
-        let value = vertices_evolution[&petgraph::graph::NodeIndex::new(*vertex)].clone();
+        let value = arrival_evolution[vertex].clone();
 
         write_values_to_file(value, vertices_evolution_path)?;
     }
