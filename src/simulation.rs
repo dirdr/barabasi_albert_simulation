@@ -20,7 +20,7 @@ pub struct Simulation<S: SimulationState> {
 pub trait SimulationState {}
 
 pub struct Over {
-    pub arrival_evolution: Option<HashMap<usize, Vec<usize>>>,
+    pub arrival_evolution: Option<HashMap<usize, Vec<f32>>>,
 }
 
 pub struct Start {}
@@ -30,7 +30,7 @@ impl SimulationState for Start {}
 
 impl<S: SimulationState> Simulation<S> {
     /// Combine a matrix of rows into a mean row
-    pub fn mean_vectors(vectors: &[Vec<usize>]) -> Vec<usize> {
+    pub fn mean_vectors(vectors: &[Vec<usize>]) -> Vec<f32> {
         assert!(!vectors.is_empty(), "Input vector list cannot be empty");
 
         let num_vectors = vectors.len();
@@ -55,7 +55,7 @@ impl<S: SimulationState> Simulation<S> {
         (0..vector_length)
             .map(|i| {
                 let sum: usize = vectors.iter().map(|v| v[i]).sum();
-                (sum as f64 / num_vectors as f64).ceil() as usize
+                sum as f32 / num_vectors as f32
             })
             .collect()
     }
@@ -100,7 +100,7 @@ impl Simulation<Start> {
             }
         }
 
-        let meaned_arrivals_evolution: HashMap<usize, Vec<usize>> = all_arrival_evolution
+        let meaned_arrivals_evolution: HashMap<usize, Vec<f32>> = all_arrival_evolution
             .into_iter()
             .map(|(k, ce)| (k, Simulation::<Start>::mean_vectors(&ce)))
             .collect();
@@ -125,7 +125,7 @@ impl Simulation<Over> {
 
     pub fn get_mean_arrival_evolution<G: VerticesEvolutionMarker>(
         &self,
-    ) -> HashMap<usize, Vec<usize>> {
+    ) -> HashMap<usize, Vec<f32>> {
         if let Some(ve) = &self.state.arrival_evolution {
             return ve.clone();
         }

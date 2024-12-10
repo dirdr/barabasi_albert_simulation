@@ -19,7 +19,10 @@ where
     Ok(())
 }
 
-pub fn write_values_to_file<P: AsRef<Path>>(values: Vec<usize>, path: P) -> anyhow::Result<()> {
+pub fn write_values_to_file<P: AsRef<Path>, T: ToString>(
+    values: Vec<T>,
+    path: P,
+) -> anyhow::Result<()> {
     let line = values
         .iter()
         .map(|e| e.to_string())
