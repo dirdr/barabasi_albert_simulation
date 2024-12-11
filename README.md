@@ -1,10 +1,11 @@
 # About
-Clap command line application to simulate Barabási-Albert models and two variants, the following models can be run
-- Vertex growth + Preferential attachement
-- Vertex growth + Random attachement
-- No growth + Preferential attachement
+Clap command line application to simulate Barabási-Albert network models and two variants, the following models can be run
+- Vertex growth + Preferential attachment
+- Vertex growth + Random attachment
+- No growth + Preferential attachment
 
-This simulation was made to support a lab work for the _Complex and Social Networks_ course of the Facultad de Informática de Barcelona
+This simulation was made to support lab work for the _Complex and Social Networks_ course of the Facultad de Informática de Barcelona
+It has been built using clap, and petgraph
 
 ## Usage
 ```sh
